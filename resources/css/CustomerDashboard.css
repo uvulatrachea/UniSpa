@@ -1,0 +1,1289 @@
+/* CustomerDashboard.css - Updated */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(50px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes floatIn {
+  from { transform: translateY(100px) scale(0.8); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-15px); }
+  60% { transform: translateY(-7px); }
+}
+
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); box-shadow: 0 4px 15px rgba(93, 58, 127, 0.3); }
+  50% { transform: scale(1.05); box-shadow: 0 8px 25px rgba(93, 58, 127, 0.4); }
+  100% { transform: scale(1); box-shadow: 0 4px 15px rgba(93, 58, 127, 0.3); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(212, 175, 185, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(212, 175, 185, 0.8); }
+}
+
+/* Animation Classes */
+.fade-in-element {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.slide-in-element {
+  opacity: 0;
+  transform: translateX(50px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.card, .welcome-card, .history-section {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.floating-promo {
+  animation: floatIn 0.5s ease-out;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+
+.promo-popup {
+  animation: bounce 1s ease, float 3s ease-in-out infinite 1s;
+  box-shadow: 0 15px 50px rgba(93, 58, 127, 0.4);
+}
+
+/* Infinite Scroll for History Images */
+.image-scroll-content {
+  animation: scroll 40s linear infinite;
+}
+
+.image-scroll-content:hover {
+  animation-play-state: paused;
+}
+
+/* Interactive States */
+.action-button:hover,
+.service-preview-card:hover,
+.statistic-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(93, 58, 127, 0.2);
+}
+
+.service-preview-card:hover .service-image {
+  transform: scale(1.1);
+}
+
+.statistic-card:hover .statistic-icon {
+  animation: pulse 0.8s ease;
+}
+
+.nav-link:hover,
+.footer-links a:hover,
+.social-link:hover {
+  transform: translateY(-2px);
+}
+
+.primary-button:hover,
+.secondary-button:hover,
+.book-now-button:hover,
+.service-book-button:hover {
+  animation: pulse 0.5s ease;
+}
+
+.popup-button:hover,
+.floating-promo-button:hover,
+.learn-more-button:hover {
+  animation: glow 1.5s infinite;
+}
+
+/* Scrollbar Styling */
+.appointments-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.appointments-list::-webkit-scrollbar-track {
+  background: rgba(93, 58, 127, 0.1);
+  border-radius: 10px;
+}
+
+.appointments-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #5d3a7f 0%, #8a6dad 100%);
+  border-radius: 10px;
+}
+
+.appointments-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #8a6dad 0%, #5d3a7f 100%);
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+
+/* Large Desktop (1400px+) */
+@media (min-width: 1400px) {
+  .main-content {
+    padding: 60px 40px;
+  }
+
+  .services-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Desktop (1200px - 1399px) */
+@media (max-width: 1399px) and (min-width: 1200px) {
+  .services-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .welcome-stats,
+  .statistics-section {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .action-buttons {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Large Tablet (992px - 1199px) */
+@media (max-width: 1199px) and (min-width: 992px) {
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .welcome-stats,
+  .statistics-section {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .action-buttons {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .promo-popup {
+    right: 20px !important;
+    bottom: 20px !important;
+    width: 300px !important;
+  }
+
+  .footer-content {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .carousel-title {
+    font-size: 3.2rem;
+  }
+
+  .carousel-description {
+    font-size: 1.5rem;
+  }
+
+  .main-content {
+    padding: 50px 25px;
+  }
+}
+
+/* Tablet (768px - 991px) */
+@media (max-width: 991px) and (min-width: 768px) {
+  /* Layout Adjustments */
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .welcome-stats,
+  .statistics-section {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .action-buttons {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+
+  /* Typography Scaling */
+  .welcome-title {
+    font-size: 2.8rem !important;
+    line-height: 1.2;
+  }
+
+  .welcome-subtitle {
+    font-size: 1.2rem !important;
+    line-height: 1.4;
+  }
+
+  .section-title {
+    font-size: 2.4rem !important;
+    line-height: 1.3;
+  }
+
+  .section-subtitle {
+    font-size: 1.2rem !important;
+    line-height: 1.5;
+  }
+
+  .card-title {
+    font-size: 1.9rem !important;
+    line-height: 1.3;
+  }
+
+  .card-description {
+    font-size: 1.1rem !important;
+    line-height: 1.6;
+  }
+
+  .stat-number {
+    font-size: 2.2rem !important;
+  }
+
+  .stat-label {
+    font-size: 1rem !important;
+  }
+
+  .action-button {
+    padding: 20px 25px !important;
+    font-size: 1rem !important;
+  }
+
+  .action-icon {
+    width: 65px !important;
+    height: 65px !important;
+    font-size: 1.8rem !important;
+  }
+
+  /* Button Sizing */
+  .primary-button,
+  .secondary-button {
+    padding: 16px 28px !important;
+    font-size: 1rem !important;
+  }
+
+  .book-now-button {
+    padding: 14px 26px !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Card Sizing */
+  .card {
+    padding: 35px !important;
+  }
+
+  .welcome-card {
+    padding: 35px !important;
+  }
+
+  .statistic-card {
+    padding: 28px !important;
+  }
+
+  .service-preview-card {
+    padding: 22px !important;
+  }
+
+  /* Promotional Elements */
+  .promo-popup {
+    right: 15px !important;
+    bottom: 15px !important;
+    width: 280px !important;
+  }
+
+  .carousel {
+    height: 550px !important;
+  }
+
+  .carousel-title {
+    font-size: 2.8rem;
+    line-height: 1.2;
+  }
+
+  .carousel-description {
+    font-size: 1.3rem;
+    line-height: 1.4;
+  }
+
+  .carousel-content {
+    padding: 0 40px;
+  }
+
+  .carousel-button {
+    padding: 16px 32px !important;
+    font-size: 1.1rem !important;
+  }
+
+  .floating-promo {
+    width: 380px !important;
+    right: 20px !important;
+  }
+
+  .floating-promo.minimized {
+    width: 220px !important;
+  }
+
+  /* Navigation */
+  .nav-links {
+    gap: 12px;
+  }
+
+  .nav-link {
+    padding: 12px 18px;
+    font-size: 0.95rem;
+  }
+
+  /* Footer */
+  .footer-content {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 40px;
+    padding: 50px 25px;
+  }
+
+  .footer-heading {
+    font-size: 1.2rem;
+  }
+
+  /* History Section */
+  .history-content {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .history-images {
+    order: -1;
+    height: 300px;
+  }
+
+  .history-section {
+    padding: 45px 25px;
+  }
+
+  .card-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .card-title {
+    margin-left: 0;
+    font-size: 2rem;
+  }
+
+  /* About page responsive */
+  .mission-section {
+    grid-template-columns: 1fr !important;
+    gap: 30px !important;
+    padding: 35px !important;
+  }
+
+  .mission-section h2 {
+    font-size: 2.1rem !important;
+  }
+
+  .mission-text {
+    font-size: 1.1rem !important;
+    line-height: 1.6;
+  }
+
+  .mission-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 15px !important;
+  }
+
+  .offers-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  .offer-card {
+    padding: 28px !important;
+  }
+
+  .offer-title {
+    font-size: 1.4rem !important;
+  }
+
+  .offer-text {
+    font-size: 1rem !important;
+  }
+
+  .team-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  .team-category {
+    padding: 28px !important;
+  }
+
+  .team-title {
+    font-size: 1.4rem !important;
+  }
+
+  .location-grid {
+    grid-template-columns: 1fr !important;
+    gap: 30px !important;
+  }
+
+  .location-section {
+    padding: 45px 25px !important;
+  }
+
+  .about-container {
+    grid-template-columns: 1fr !important;
+    gap: 30px !important;
+  }
+
+  .stats-sidebar {
+    position: static !important;
+    order: -1;
+  }
+
+  .sidebar-title {
+    font-size: 1.7rem !important;
+  }
+}
+
+/* Small Tablet / Large Mobile (576px - 767px) */
+@media screen and (min-width: 576px) and (max-width: 767px) {
+  .welcome-title {
+    font-size: 2.5rem !important;
+    line-height: 1.2;
+  }
+
+  .welcome-subtitle {
+    font-size: 1.1rem !important;
+    line-height: 1.4;
+  }
+
+  .section-title {
+    font-size: 2.3rem !important;
+    line-height: 1.3;
+  }
+
+  .section-subtitle {
+    font-size: 1.1rem !important;
+    line-height: 1.5;
+  }
+
+  .card-title {
+    font-size: 1.7rem !important;
+    line-height: 1.3;
+  }
+
+  .card-description {
+    font-size: 1rem !important;
+    line-height: 1.6;
+  }
+
+  .stat-number {
+    font-size: 2rem !important;
+  }
+
+  .stat-label {
+    font-size: 0.9rem !important;
+  }
+
+  .action-button {
+    padding: 22px 18px !important;
+    font-size: 0.95rem !important;
+  }
+
+  .action-icon {
+    width: 60px !important;
+    height: 60px !important;
+    font-size: 1.6rem !important;
+  }
+
+  /* Button Sizing */
+  .primary-button,
+  .secondary-button {
+    padding: 14px 24px !important;
+    font-size: 0.95rem !important;
+  }
+
+  .book-now-button {
+    padding: 12px 22px !important;
+    font-size: 0.9rem !important;
+  }
+
+  /* Card Sizing */
+  .card {
+    padding: 32px !important;
+  }
+
+  .welcome-card {
+    padding: 32px !important;
+  }
+
+  .statistic-card {
+    padding: 24px !important;
+  }
+
+  .service-preview-card {
+    padding: 18px !important;
+  }
+
+  /* Promotional Elements */
+  .promo-popup {
+    display: none; /* Hide on smaller screens for better UX */
+  }
+
+  .carousel {
+    height: 450px !important;
+  }
+
+  .carousel-title {
+    font-size: 2.2rem;
+  }
+
+  .carousel-description {
+    font-size: 1.1rem;
+  }
+
+  .carousel-content {
+    padding: 0 25px;
+  }
+
+  .carousel-button {
+    padding: 12px 25px;
+    font-size: 1rem;
+  }
+
+  .floating-promo {
+    width: calc(100% - 30px) !important;
+    right: 15px !important;
+    left: 15px !important;
+    height: 200px !important;
+  }
+
+  .floating-promo.minimized {
+    width: 160px !important;
+    height: 40px !important;
+    bottom: 8px !important;
+  }
+
+  .floating-promo-image {
+    display: none;
+  }
+
+  .floating-promo-text {
+    padding: 15px;
+  }
+
+  .floating-promo-title {
+    font-size: 1.4rem;
+  }
+
+  .floating-promo-description {
+    font-size: 0.9rem;
+  }
+
+  .main-content {
+    padding: 25px 15px;
+  }
+
+  .welcome-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 20px;
+  }
+
+  .welcome-avatar {
+    margin-right: 0;
+  }
+
+  .appointment-item {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .appointment-date {
+    align-self: center;
+  }
+
+  .appointment-status,
+  .view-details-btn {
+    align-self: center;
+  }
+
+  .card-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .primary-button,
+  .secondary-button {
+    width: 100%;
+  }
+
+  .service-actions {
+    flex-direction: column;
+  }
+
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-stats,
+  .statistics-section,
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 35px;
+    padding: 45px 20px;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .nav-link {
+    font-size: 0.9rem;
+    padding: 10px 15px;
+  }
+
+  /* About page responsive */
+  .mission-section {
+    padding: 32px !important;
+  }
+
+  .mission-section h2 {
+    font-size: 1.9rem !important;
+  }
+
+  .mission-text {
+    font-size: 1rem !important;
+  }
+
+  .offer-card {
+    padding: 24px !important;
+  }
+
+  .offer-title {
+    font-size: 1.3rem !important;
+  }
+
+  .team-category {
+    padding: 24px !important;
+  }
+
+  .location-section {
+    padding: 40px 20px !important;
+  }
+}
+
+/* Mobile (320px - 575px) */
+@media (max-width: 575px) {
+  .carousel {
+    height: 380px !important;
+  }
+
+  .carousel-title {
+    font-size: 1.8rem;
+  }
+
+  .carousel-description {
+    font-size: 0.95rem;
+    margin-bottom: 25px;
+  }
+
+  .carousel-button {
+    padding: 12px 20px;
+    font-size: 0.95rem;
+  }
+
+  .carousel-nav-prev,
+  .carousel-nav-next {
+    width: 45px;
+    height: 45px;
+    font-size: 1.1rem;
+  }
+
+  .carousel-content {
+    padding: 0 20px;
+  }
+
+  .floating-promo {
+    height: 180px !important;
+  }
+
+  .floating-promo.minimized {
+    width: 140px !important;
+    height: 35px !important;
+  }
+
+  .floating-promo-text {
+    padding: 12px;
+  }
+
+  .floating-promo-title {
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+  }
+
+  .floating-promo-description {
+    font-size: 0.85rem;
+    margin-bottom: 15px;
+  }
+
+  .floating-promo-button {
+    padding: 10px 20px;
+    font-size: 0.85rem;
+  }
+
+  .minimized-text {
+    font-size: 0.75rem;
+  }
+
+  .main-content {
+    padding: 20px 10px;
+  }
+
+  .welcome-title {
+    font-size: 2rem;
+  }
+
+  .welcome-subtitle {
+    font-size: 1rem;
+  }
+
+  .welcome-avatar {
+    font-size: 4rem;
+  }
+
+  .stat-item {
+    padding: 15px;
+  }
+
+  .stat-number {
+    font-size: 1.8rem;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+  }
+
+  .stat-sub-label {
+    font-size: 0.8rem;
+  }
+
+  .card {
+    padding: 30px 20px;
+  }
+
+  .card-title {
+    font-size: 1.6rem;
+  }
+
+  .card-description {
+    font-size: 1.1rem;
+  }
+
+  .appointment-item {
+    padding: 20px;
+    gap: 15px;
+  }
+
+  .appointment-service {
+    font-size: 1.3rem;
+  }
+
+  .appointment-time,
+  .appointment-therapist {
+    font-size: 0.9rem;
+  }
+
+  .no-appointments {
+    padding: 60px 20px;
+  }
+
+  .no-appointments-title {
+    font-size: 1.8rem;
+  }
+
+  .section-title {
+    font-size: 2rem;
+  }
+
+  .section-subtitle {
+    font-size: 1rem;
+  }
+
+  .action-button {
+    padding: 25px 15px;
+  }
+
+  .action-icon {
+    width: 70px;
+    height: 70px;
+  }
+
+  .statistic-card {
+    padding: 25px;
+  }
+
+  .statistic-number {
+    font-size: 2.2rem;
+  }
+
+  .statistic-label {
+    font-size: 1rem;
+  }
+
+  .service-preview-card {
+    padding: 15px;
+  }
+
+  .service-preview-title {
+    font-size: 1.2rem;
+  }
+
+  .service-preview-meta {
+    font-size: 0.85rem;
+  }
+
+  .service-preview-desc {
+    font-size: 0.9rem;
+  }
+
+  .service-actions {
+    gap: 8px;
+  }
+
+  .service-detail-button,
+  .service-book-button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  .history-section {
+    padding: 40px 20px;
+  }
+
+  .mission-section {
+    padding: 40px 20px;
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .offers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .offer-card {
+    padding: 25px;
+  }
+
+  .offer-title {
+    font-size: 1.3rem;
+  }
+
+  .offer-text {
+    font-size: 0.95rem;
+  }
+
+  .team-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-category {
+    padding: 25px;
+  }
+
+  .team-title {
+    font-size: 1.3rem;
+  }
+
+  .location-grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .location-map {
+    height: 200px;
+  }
+
+  .map-placeholder {
+    padding: 40px 20px;
+  }
+
+  .footer-content {
+    padding: 40px 20px;
+    gap: 30px;
+  }
+
+  .footer-logo {
+    font-size: 1.3rem;
+  }
+
+  .nav-links {
+    display: none; /* Hide navigation links on mobile */
+  }
+
+  .user-greeting {
+    font-size: 0.9rem;
+    padding: 10px 15px;
+  }
+
+  .user-greeting span {
+    display: none; /* Hide username text on very small screens */
+  }
+
+  .logout-link {
+    font-size: 1rem;
+  }
+}
+
+/* Extra Small Mobile (320px and below) */
+@media (max-width: 320px) {
+  .carousel {
+    height: 350px !important;
+  }
+
+  .carousel-title {
+    font-size: 1.6rem;
+  }
+
+  .carousel-description {
+    font-size: 0.9rem;
+  }
+
+  .main-content {
+    padding: 15px 8px;
+  }
+
+  .welcome-title {
+    font-size: 1.8rem;
+  }
+
+  .card {
+    padding: 20px 15px;
+  }
+
+  .appointment-item {
+    padding: 15px;
+  }
+
+  .floating-promo {
+    width: calc(100% - 20px) !important;
+    left: 10px !important;
+    right: 10px !important;
+  }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .action-button,
+  .service-preview-card,
+  .statistic-card,
+  .nav-link {
+    transform: none !important; /* Disable hover transforms on touch devices */
+  }
+
+  .action-button:hover,
+  .service-preview-card:hover,
+  .statistic-card:hover,
+  .nav-link:hover {
+    transform: none !important;
+  }
+}
+
+/* High DPI / Retina Displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .carousel-image,
+  .service-image,
+  .facility-image,
+  .scroll-image {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .floating-promo,
+  .promo-popup,
+  .carousel-nav-prev,
+  .carousel-nav-next,
+  .carousel-indicators,
+  .action-buttons,
+  .book-now-button,
+  .navbar {
+    display: none !important;
+  }
+
+  .main-content {
+    padding: 0 !important;
+  }
+
+  .card,
+  .welcome-card,
+  .history-section {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+  }
+
+  .footer {
+    position: static;
+    background: white !important;
+    color: black !important;
+    border-top: 1px solid #ddd;
+  }
+}
+
+/* Accessibility Improvements */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .image-scroll-content {
+    animation: none;
+  }
+}
+
+/* Dark Mode Support (if needed in future) */
+@media (prefers-color-scheme: dark) {
+  /* Add dark mode styles here if implementing dark theme */
+}
+
+/* Orientation Changes */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  .carousel {
+    height: 300px !important;
+  }
+
+  .floating-promo {
+    height: 150px !important;
+  }
+}
+
+/* ========== MOBILE MENU STYLES ========== */
+.mobile-menu-button {
+  display: none !important;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 5px;
+  transition: all 0.3s ease;
+}
+
+.mobile-menu-button:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.mobile-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 9998;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.mobile-menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100vh;
+  background: linear-gradient(135deg, #5d3a7f 0%, #8a6dad 100%);
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  z-index: 9999;
+  box-shadow: -5px 0 20px rgba(0,0,0,0.3);
+}
+
+.mobile-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.mobile-menu-logo {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.mobile-menu-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.mobile-menu-content {
+  padding: 20px 0;
+}
+
+.mobile-menu-link,
+.mobile-menu-link-active {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 20px;
+  color: white;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.mobile-menu-link:hover,
+.mobile-menu-link-active {
+  background: rgba(255,255,255,0.1);
+  border-left: 4px solid #d4afb9;
+  padding-left: 16px;
+}
+
+.mobile-menu-link span {
+  font-weight: 500;
+}
+
+.mobile-menu-link-active {
+  background: rgba(255,255,255,0.15);
+  border-left: 4px solid #d4afb9;
+}
+
+.mobile-menu-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 20px 0;
+}
+
+.mobile-menu-user {
+  padding: 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.mobile-user-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.mobile-user-icon {
+  font-size: 2rem;
+  color: #d4afb9;
+}
+
+.mobile-user-name {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.mobile-logout-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 15px 20px;
+  background: rgba(239, 68, 68, 0.8);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.mobile-logout-button:hover {
+  background: rgba(239, 68, 68, 1);
+  transform: translateY(-2px);
+}
+
+/* Show mobile menu button on tablets and below */
+@media (max-width: 991px) {
+  .mobile-menu-button {
+    display: block !important;
+  }
+
+  .nav-links {
+    display: none !important;
+  }
+
+  .user-greeting {
+    display: none !important;
+  }
+
+  .mobile-menu-overlay {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .mobile-menu {
+    transform: translateX(0);
+  }
+}
+
+/* Smaller mobile menu on phones */
+@media (max-width: 575px) {
+  .mobile-menu {
+    width: 280px;
+  }
+
+  .mobile-menu-header {
+    padding: 15px;
+  }
+
+  .mobile-menu-content {
+    padding: 15px 0;
+  }
+
+  .mobile-menu-link,
+  .mobile-menu-link-active {
+    padding: 12px 15px;
+    font-size: 0.95rem;
+  }
+
+  .mobile-menu-user {
+    padding: 15px;
+  }
+}

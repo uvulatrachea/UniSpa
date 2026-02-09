@@ -41,6 +41,13 @@ return [
             'provider' => 'users',
         ],
 
+        // Back-office staff/admin authentication.
+        // Used by AdminOnly middleware and AdminAuthController.
+        'staff' => [
+            'driver' => 'session',
+            'provider' => 'staff',
+        ],
+
         'customer' => [
             'driver' => 'session',
             'provider' => 'customers',
@@ -68,6 +75,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
+        ],
+
+        'staff' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Staff::class,
         ],
 
         'customers' => [

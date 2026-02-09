@@ -12,8 +12,9 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
-    protected $table = 'customer';
-    protected $primaryKey = 'customer_id';
+    // Default Laravel user model should point at the `users` table.
+    protected $table = 'users';
+    protected $primaryKey = 'id';
     public $timestamps = true;
     
     /**
@@ -25,10 +26,6 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'phone',
-        'is_uitm_member',
-        'verification_status',
-        'cust_type',
     ];
 
     /**

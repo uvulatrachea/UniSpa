@@ -9,7 +9,12 @@ use App\Http\Requests\Auth\SignupRequest;
 use App\Models\Customer;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rules;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,7 +32,12 @@ class CustomerAuthController extends Controller
      */
     public function showLogin(): Response
     {
-        return Inertia::render('Auth/CustomerLogin');
+        // Match SDD (PDF): customer login is email + password (same UI as register, toggle panel).
+        return Inertia::render('Auth/Auth', [
+            'defaultPanel' => 'login',
+            'status' => session('status'),
+            'canResetPassword' => true,
+        ]);
     }
 
     /**
@@ -35,7 +45,100 @@ class CustomerAuthController extends Controller
      */
     public function showSignup(): Response
     {
-        return Inertia::render('Auth/CustomerSignup');
+        // Match SDD (PDF): customer signup is username/email/phone/password + UITM type selection.
+        return Inertia::render('Auth/Auth', [
+            'defaultPanel' => 'register',
+            'status' => session('status'),
+            'canResetPassword' => true,
+        ]);
+    }
+
+    /**
+     * Customer password-based login (session guard: customer)
+     */
+    public function passwordLogin(Request $request): RedirectResponse
+    {
+        $credentials = $request->validate([
+            'email' => ['required', 'string', 'email'],
+            'password' => ['required', 'string'],
+        ]);
+
+        $remember = $request->boolean('remember');
+
+        if (!Auth::guard('customer')->attempt($credentials, $remember)) {
+            throw ValidationException::withMessages([
+                'email' => trans('auth.failed'),
+            ]);
+        }
+
+        $request->session()->regenerate();
+
+        return redirect()->intended(route('customer.dashboard'));
+    }
+
+    /**
+     * Customer password-based registration
+     */
+    public function passwordRegister(Request $request): RedirectResponse
+    {
+        // NOTE: Customer model uses table `customers`. Some older code used `customer`.
+        $rules = [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:customers,email'],
+            'phone' => ['required', 'string', 'max:20'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'cust_type' => ['required', 'string', 'in:uitm_member,regular'],
+            'member_type' => ['nullable', 'string', 'in:student,staff'],
+            'is_uitm_member' => ['nullable'],
+        ];
+
+        if ($request->input('cust_type') === 'uitm_member') {
+            $rules['member_type'] = ['required', 'string', 'in:student,staff'];
+        }
+
+        $validated = $request->validate($rules);
+
+        // Determine is_uitm_member from selection + email domain
+        $emailLower = strtolower($validated['email']);
+        $emailIsUitm = str_ends_with($emailLower, '@student.uitm.edu.my') || str_ends_with($emailLower, '@staff.uitm.edu.my');
+
+        if ($validated['cust_type'] === 'uitm_member' && !$emailIsUitm) {
+            throw ValidationException::withMessages([
+                'email' => ['The email must be a valid UITM email (@student.uitm.edu.my or @staff.uitm.edu.my).'],
+            ]);
+        }
+
+        if ($validated['cust_type'] === 'regular' && $emailIsUitm) {
+            throw ValidationException::withMessages([
+                'email' => ['UITM email addresses cannot be used for regular registration.'],
+            ]);
+        }
+
+        $customer = Customer::create([
+            'customer_id' => 'CUST-' . Str::uuid(),
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'],
+            'password' => Hash::make($validated['password']),
+            'is_uitm_member' => $emailIsUitm,
+            'verification_status' => $emailIsUitm ? 'pending' : 'verified',
+            'cust_type' => $validated['cust_type'],
+            'member_type' => $validated['cust_type'] === 'uitm_member' ? $validated['member_type'] : null,
+            'is_email_verified' => !$emailIsUitm,
+            'auth_method' => 'password',
+            'profile_completed' => true,
+        ]);
+
+        if ($emailIsUitm) {
+            $this->otpService->sendOtpForSignup($customer->email, $customer->name, $customer->phone);
+            return redirect()->route('verify.otp.page', ['email' => $customer->email])
+                ->with('success', 'OTP has been sent to your UITM email.');
+        }
+
+        Auth::guard('customer')->login($customer);
+        $request->session()->regenerate();
+
+        return redirect()->route('customer.dashboard');
     }
 
     /**
@@ -238,11 +341,11 @@ class CustomerAuthController extends Controller
         public function verifyOtp(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|exists:customer,email',
+            'email' => 'required|email|exists:customers,email',
             'otp_code' => 'required|digits:6',
         ]);
 
-        $otpService = new OtpService();
+        $otpService = $this->otpService;
         $result = $otpService->verifyOtp($request->email, $request->otp_code);
 
         if (!$result['success']) {
@@ -252,11 +355,12 @@ class CustomerAuthController extends Controller
         // Update customer verification status
         $customer = Customer::where('email', $request->email)->first();
         $customer->verification_status = 'verified';
+        $customer->is_email_verified = true;
         $customer->save();
 
         $otpService->invalidateOtp($request->email);
 
-        return redirect()->route('login')->with('success', 'Email verified! You can now log in.');
+        return redirect()->route('customer.login')->with('success', 'Email verified! You can now log in.');
     }
 
 
@@ -324,9 +428,10 @@ class CustomerAuthController extends Controller
     {
         auth('customer')->logout();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Logged out successfully'
-        ]);
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+
+        // Inertia-friendly redirect
+        return redirect()->route('customer.login');
     }
 }

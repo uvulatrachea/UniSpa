@@ -1,0 +1,52 @@
+# Base Image: PHP 8.4
+FROM php:8.4
+
+# Install system dependencies including Node.js and PostgreSQL client
+RUN apt-get update -y && apt-get install -y \
+    openssl \
+    zip \
+    unzip \
+    git \
+    curl \
+    wget \
+    nodejs \
+    npm \
+    libpq-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    libicu-dev \
+    postgresql-client
+
+# Install Composer (PHP package manager)
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Install PHP extensions including PostgreSQL support
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg
+RUN docker-php-ext-install pdo pdo_pgsql pgsql mbstring zip exif pcntl gd bcmath intl
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy application files to container
+COPY . /var/www/html
+
+# Install PHP dependencies
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+
+# Install Node.js dependencies (if package.json exists)
+COPY package*.json ./
+RUN [ -f "package.json" ] && npm install || echo "No package.json found"
+
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Command to run the Laravel development server
+CMD php artisan serve --host=0.0.0.0 --port=80
+
+# Expose port 80
+EXPOSE 80

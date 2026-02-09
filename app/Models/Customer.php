@@ -10,14 +10,15 @@ class Customer extends Authenticatable
 {
     use HasFactory;
 
-    protected $table = 'customer';
+    // NOTE: Database schema uses plural table name.
+    protected $table = 'customers';
     
     // Primary key
     protected $primaryKey = 'customer_id';
     
-    protected $keyType = 'string';
+    protected $keyType = 'int';
     
-    public $incrementing = false;
+    public $incrementing = true;
     
     protected $fillable = [
         'customer_id',
@@ -37,14 +38,18 @@ class Customer extends Authenticatable
         'profile_completed'
     ];
     
-    protected $hidden = ['password'];
+    protected $hidden = ['password', 'remember_token'];
     
     protected $casts = [
         'is_uitm_member' => 'boolean',
-        'created_at' => 'datetime'
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'otp_expires_at' => 'datetime',
+        'is_email_verified' => 'boolean',
+        'profile_completed' => 'boolean',
     ];
     
-    public $timestamps = false;
+    public $timestamps = true;
     
     public function bookings()
     {

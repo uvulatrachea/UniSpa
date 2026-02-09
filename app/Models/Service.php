@@ -2,41 +2,37 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model
 {
-    use HasFactory;
-
     protected $table = 'service';
-    protected $primaryKey = 'service_id';
-    protected $keyType = 'string';
-    public $incrementing = false;
-    
+    protected $primaryKey = 'id';     // ✅ correct
+    public $incrementing = true;      // ✅ bigint auto
+    protected $keyType = 'int';
+    public $timestamps = true;        // ✅ you DO have created_at/updated_at now
+
     protected $fillable = [
-        'service_id',
         'category_id',
         'name',
+        'description',
         'price',
         'duration_minutes',
-        'description'
+        'image_url',
+        'is_popular',
+        'tags',
+        'location_mode'
     ];
-    
-    public $timestamps = false;
-    
-    public function category()
-    {
-        return $this->belongsTo(ServiceCategory::class, 'category_id', 'category_id');
-    }
-    
-    public function slots()
-    {
-        return $this->hasMany(Slot::class, 'service_id', 'service_id');
-    }
-    
+
     public function promotions()
     {
-        return $this->belongsToMany(Promotion::class, 'promotion_service', 'service_id', 'promotion_id');
+        return $this->belongsToMany(
+            Promotion::class,
+            'promotion_service',
+            'service_id',       // pivot column
+            'promotion_id',     // pivot column
+            'id',               // local key on service table
+            'promotion_id'      // key on promotion table
+        );
     }
 }

@@ -1,0 +1,136 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+
+class ReviewController extends Controller
+{
+    public function index()
+    {
+        $customer = Auth::guard('customer')->user();
+        if (!$customer) {
+            return redirect()->route('customer.login');
+        }
+
+        $reviews = DB::table('review as r')
+            ->leftJoin('customers as c', 'c.customer_id', '=', 'r.customer_id')
+            ->leftJoin('booking as b', 'b.booking_id', '=', 'r.booking_id')
+            ->leftJoin('slot as sl', 'sl.slot_id', '=', 'b.slot_id')
+            ->leftJoin('service as sv', 'sv.id', '=', 'sl.service_id')
+            ->select([
+                'r.review_id',
+                'r.booking_id',
+                'r.customer_id',
+                'r.rating',
+                'r.comment',
+                'r.created_at',
+                'c.name as customer_name',
+                'sv.name as service_name',
+            ])
+            ->orderByDesc('r.created_at')
+            ->orderByDesc('r.review_id')
+            ->get();
+
+        $topReview = DB::table('review as r')
+            ->leftJoin('customers as c', 'c.customer_id', '=', 'r.customer_id')
+            ->leftJoin('booking as b', 'b.booking_id', '=', 'r.booking_id')
+            ->leftJoin('slot as sl', 'sl.slot_id', '=', 'b.slot_id')
+            ->leftJoin('service as sv', 'sv.id', '=', 'sl.service_id')
+            ->select([
+                'r.review_id',
+                'r.booking_id',
+                'r.customer_id',
+                'r.rating',
+                'r.comment',
+                'r.created_at',
+                'c.name as customer_name',
+                'sv.name as service_name',
+            ])
+            ->orderByDesc('r.rating')
+            ->orderByDesc('r.created_at')
+            ->first();
+
+        $stats = [
+            'totalReviews' => (int) DB::table('review')->count(),
+            'avgRating' => round((float) (DB::table('review')->avg('rating') ?? 0), 1),
+            'fiveStarReviews' => (int) DB::table('review')->where('rating', 5)->count(),
+            'myReviews' => (int) DB::table('review')->where('customer_id', $customer->customer_id)->count(),
+        ];
+
+        $canReviewBookings = DB::table('booking as b')
+            ->join('slot as sl', 'sl.slot_id', '=', 'b.slot_id')
+            ->join('service as sv', 'sv.id', '=', 'sl.service_id')
+            ->leftJoin('review as r', 'r.booking_id', '=', 'b.booking_id')
+            ->where('b.customer_id', $customer->customer_id)
+            ->whereIn('b.status', ['completed', 'confirmed'])
+            ->whereNull('r.review_id')
+            ->select([
+                'b.booking_id',
+                'sv.name as service_name',
+                'sl.slot_date',
+            ])
+            ->orderByDesc('sl.slot_date')
+            ->get();
+
+        return Inertia::render('Reviews', [
+            'auth' => [
+                'user' => [
+                    'customer_id' => $customer->customer_id,
+                    'name' => $customer->name,
+                    'email' => $customer->email,
+                ],
+            ],
+            'reviews' => $reviews,
+            'topReview' => $topReview,
+            'stats' => $stats,
+            'canReviewBookings' => $canReviewBookings,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $customer = Auth::guard('customer')->user();
+        if (!$customer) {
+            return redirect()->route('customer.login');
+        }
+
+        $validated = $request->validate([
+            'booking_id' => ['required', 'string', 'max:255'],
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $booking = DB::table('booking')
+            ->where('booking_id', $validated['booking_id'])
+            ->where('customer_id', $customer->customer_id)
+            ->whereIn('status', ['completed', 'confirmed'])
+            ->first();
+
+        if (!$booking) {
+            return back()->with('error', 'Selected booking is not eligible for review.');
+        }
+
+        $alreadyReviewed = DB::table('review')
+            ->where('booking_id', $validated['booking_id'])
+            ->exists();
+
+        if ($alreadyReviewed) {
+            return back()->with('error', 'This booking already has a review.');
+        }
+
+        DB::table('review')->insert([
+            'booking_id' => $validated['booking_id'],
+            'customer_id' => $customer->customer_id,
+            'rating' => (int) $validated['rating'],
+            'comment' => $validated['comment'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Thanks! Your review has been submitted.');
+    }
+}

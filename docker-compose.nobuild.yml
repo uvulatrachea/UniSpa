@@ -1,0 +1,31 @@
+version: '3.8'
+services:
+  pgsql:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: unispa
+      POSTGRES_USER: unispa_user
+      POSTGRES_PASSWORD: unispa123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  php:
+    image: php:8.4-fpm
+    volumes:
+      - ./:/var/www/html
+    working_dir: /var/www/html
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./nginx-simple.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+
+volumes:
+  postgres_data:

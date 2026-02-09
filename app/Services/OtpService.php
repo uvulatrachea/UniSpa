@@ -64,12 +64,47 @@ class OtpService
     }
 
     /**
+     * Send OTP for login (existing customers).
+     */
+    public function sendOtpForLogin(string $email): bool
+    {
+        try {
+            $customer = Customer::where('email', $email)->first();
+            if (!$customer) {
+                return false;
+            }
+
+            $otp = $this->generateOtp();
+            $expiresAt = Carbon::now()->addMinutes(self::OTP_VALIDITY);
+
+            // Store OTP for login.
+            OtpVerification::updateOrCreate(
+                ['email' => $email, 'type' => 'login'],
+                [
+                    'otp_token' => Hash::make($otp),
+                    'expires_at' => $expiresAt,
+                    'attempts' => 0,
+                    'signup_data' => null,
+                ]
+            );
+
+            Mail::to($email)->send(new SendOtpEmail($otp, 'login'));
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('OTP Login Error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Verify OTP
      */
     public function verifyOtp(string $email, string $otp): array
     {
+        // Backwards compatible: accept both 'signup' and 'login' OTP records.
         $otpRecord = OtpVerification::where('email', $email)
-            ->where('type', 'signup')
+            ->whereIn('type', ['signup', 'login'])
+            ->orderByRaw("case when type = 'signup' then 0 else 1 end")
             ->first();
 
         if (!$otpRecord) {
@@ -106,6 +141,7 @@ class OtpService
 
         return [
             'success' => true,
+            'type' => $otpRecord->type,
             'signup_data' => $otpRecord->signup_data ?? [],
         ];
     }
@@ -116,7 +152,7 @@ class OtpService
     public function invalidateOtp(string $email): void
     {
         OtpVerification::where('email', $email)
-            ->where('type', 'signup')
+            ->whereIn('type', ['signup', 'login'])
             ->delete();
     }
 

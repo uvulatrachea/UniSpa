@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class Booking extends Model
 {
@@ -57,5 +58,27 @@ class Booking extends Model
     public function review()
     {
         return $this->hasOne(Review::class, 'booking_id', 'booking_id');
+    }
+
+    /**
+     * Customer can manage (cancel/edit) only until X hours before the slot start.
+     *
+     * Minimal implementation to satisfy AppointmentController usage.
+     */
+    public function canBeManagedByCustomer(int $hoursBefore = 24): bool
+    {
+        $slot = $this->relationLoaded('slot') ? $this->getRelation('slot') : $this->slot()->first();
+
+        if (!$slot || empty($slot->slot_date) || empty($slot->start_time)) {
+            return false;
+        }
+
+        try {
+            $startAt = Carbon::parse($slot->slot_date . ' ' . $slot->start_time, config('app.timezone'));
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return now(config('app.timezone'))->lt($startAt->subHours($hoursBefore));
     }
 }

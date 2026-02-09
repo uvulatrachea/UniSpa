@@ -1,3 +1,162 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* App UI primitives */
+@layer components {
+  .ui-card {
+    @apply rounded-3xl border border-slate-200 bg-white/90 shadow-xl backdrop-blur;
+  }
+
+  .ui-card-soft {
+    @apply rounded-2xl border border-slate-200 bg-slate-50;
+  }
+
+  .ui-input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition;
+    @apply focus:border-slate-900 focus:ring-4 focus:ring-slate-900/10;
+  }
+
+  .ui-select {
+    @apply ui-input pr-10;
+  }
+
+  .ui-textarea {
+    @apply ui-input min-h-[120px];
+  }
+
+  .ui-label {
+    @apply mb-1.5 block text-sm font-extrabold text-slate-700;
+  }
+
+  .ui-error {
+    @apply mt-1 text-xs font-bold text-rose-600;
+  }
+
+  .ui-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-extrabold transition;
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .ui-btn-primary {
+    @apply ui-btn bg-slate-900 text-white hover:opacity-95;
+  }
+
+  .ui-btn-secondary {
+    @apply ui-btn border border-slate-300 bg-white text-slate-800 hover:bg-slate-50;
+  }
+}
+
+/* Global responsive safety */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Smooth scroll (disabled for reduced motion below) */
+html {
+  scroll-behavior: smooth;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Slightly nicer defaults for form controls (works with Tailwind too) */
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+/* Prevent long strings from breaking layout */
+* {
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------
+   Scroll reveal + parallax helpers (Guest landing)
+   - Use with: data-reveal + class "reveal"
+   - JS adds "is-visible" when element enters viewport
+---------------------------------------------- */
+
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0) scale(0.985);
+  filter: blur(8px);
+  transition:
+    opacity 700ms ease,
+    transform 900ms cubic-bezier(0.2, 0.85, 0.2, 1),
+    filter 900ms ease;
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: transform, opacity, filter;
+}
+
+.reveal.reveal-left {
+  transform: translate3d(-18px, 14px, 0) scale(0.985);
+}
+
+.reveal.reveal-right {
+  transform: translate3d(18px, 14px, 0) scale(0.985);
+}
+
+.reveal.reveal-down {
+  transform: translate3d(0, -16px, 0) scale(0.985);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+}
+
+/* Hero slide micro-interactions */
+.unispa-heroSlide .unispa-heroCopy {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity 700ms ease,
+    transform 900ms cubic-bezier(0.2, 0.85, 0.2, 1);
+}
+
+.unispa-heroSlide.is-active .unispa-heroCopy {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+@keyframes unispaScrollHint {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate3d(0, 10px, 0);
+    opacity: 0.25;
+  }
+}
+
+.unispa-scrollHint {
+  animation: unispaScrollHint 900ms ease-in-out infinite alternate;
+}
+
+/* Accessibility: respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal,
+  .unispa-heroSlide .unispa-heroCopy {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}

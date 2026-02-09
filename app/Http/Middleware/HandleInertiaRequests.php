@@ -29,10 +29,23 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Support both default user guard AND our custom customer/staff guards.
+        // IMPORTANT: Only call ->user() if guard is authenticated.
+        // Otherwise, SessionGuard may still attempt to retrieve a user from DB
+        // using a remembered ID, which can throw when a model points at a missing table.
+        $customer = auth('customer')->check() ? auth('customer')->user() : null;
+        $staff = auth('staff')->check() ? auth('staff')->user() : null;
+
+        // Many pages/components assume `auth.user` is the currently logged-in person.
+        // In our system, the primary session guard can be `customer` or `staff`.
+        $actor = $customer ?? $staff ?? $request->user();
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $actor,
+                'customer' => $customer,
+                'staff' => $staff,
             ],
         ];
     }
