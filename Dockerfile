@@ -49,8 +49,6 @@ RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-s
 COPY package*.json ./
 RUN if [ -f "package.json" ]; then npm install; else echo "No package.json found"; fi
 
-# Copy the rest of the app
-COPY .env .env
 
 # Permissions for Laravel
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
