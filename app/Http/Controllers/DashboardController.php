@@ -9,6 +9,10 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        if (!auth('customer')->check()) {
+            return redirect()->route('customer.login')->with('error', 'Please login to access the dashboard.');
+        }
+
         $customerId = auth('customer')->user()->customer_id;
 
         // Promotions for dashboard header carousel
