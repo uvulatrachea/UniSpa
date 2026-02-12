@@ -4,20 +4,22 @@ import CustomerLayout from "@/Layouts/CustomerLayout";
 
 const FALLBACK_IMG = "https://placehold.co/900x600/5B21B6/ffffff?text=UniSpa+Service";
 
-export default function Cart({ cartItems = [] }) {
+export default function Cart({ cartItems = [], subtotal: propSubtotal, discountAmount = 0, total: propTotal, isUitmMember = false }) {
   const { auth } = usePage().props;
   const username = auth?.user?.name || "Guest";
   const items = Array.isArray(cartItems) ? cartItems : [];
 
   const totals = useMemo(() => {
-    const subtotal = items.reduce((sum, it) => {
+    const computedSubtotal = items.reduce((sum, it) => {
       const price = Number(it?.service?.price || 0);
       const qty = Number(it?.quantity || 1);
       return sum + price * qty;
     }, 0);
-
-    return { subtotal };
-  }, [items]);
+    const sub = typeof propSubtotal === "number" ? propSubtotal : computedSubtotal;
+    const disc = Number(discountAmount) || 0;
+    const tot = typeof propTotal === "number" ? propTotal : (sub - disc);
+    return { subtotal: sub, discountAmount: disc, total: tot, isUitmMember: Boolean(isUitmMember) };
+  }, [items, propSubtotal, discountAmount, propTotal, isUitmMember]);
 
   const removeItem = (index) => {
     router.post(route("booking.cart.remove"), { index }, { preserveScroll: true });
@@ -146,6 +148,18 @@ export default function Cart({ cartItems = [] }) {
                   <span>Subtotal</span>
                   <span>RM {totals.subtotal.toFixed(2)}</span>
                 </div>
+                {totals.discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>UiTM member discount (10%)</span>
+                    <span>- RM {totals.discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                {(totals.discountAmount > 0 || totals.isUitmMember) && (
+                  <div className="flex justify-between text-base font-extrabold text-slate-900 pt-1">
+                    <span>Total</span>
+                    <span>RM {totals.total.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 h-px bg-slate-200" />

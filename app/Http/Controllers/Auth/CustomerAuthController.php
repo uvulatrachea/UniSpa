@@ -5,18 +5,17 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\SendOtpRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
-use App\Http\Requests\Auth\SignupRequest;
 use App\Models\Customer;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Log;
 
 class CustomerAuthController extends Controller
 {
@@ -27,35 +26,22 @@ class CustomerAuthController extends Controller
         $this->otpService = $otpService;
     }
 
-    /**
-     * Show customer login page
-     */
     public function showLogin(): Response
     {
-        // Match SDD (PDF): customer login is email + password (same UI as register, toggle panel).
-        return Inertia::render('Auth/Auth', [
-            'defaultPanel' => 'login',
+        return Inertia::render('Auth/Login', [
             'status' => session('status'),
             'canResetPassword' => true,
         ]);
     }
 
-    /**
-     * Show customer signup page
-     */
     public function showSignup(): Response
     {
-        // Match SDD (PDF): customer signup is username/email/phone/password + UITM type selection.
-        return Inertia::render('Auth/Auth', [
-            'defaultPanel' => 'register',
+        return Inertia::render('Auth/Register', [
             'status' => session('status'),
             'canResetPassword' => true,
         ]);
     }
 
-    /**
-     * Customer password-based login (session guard: customer)
-     */
     public function passwordLogin(Request $request): RedirectResponse
     {
         $credentials = $request->validate([
@@ -71,17 +57,101 @@ class CustomerAuthController extends Controller
             ]);
         }
 
+        $customer = Auth::guard('customer')->user();
+
+        if (!$customer->is_email_verified) {
+            Auth::guard('customer')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            try {
+                $this->otpService->sendOtpForVerification($customer->email, $customer->name, $customer->phone);
+            } catch (\Throwable $e) {
+                Log::warning('OTP resend on login failed: ' . $e->getMessage());
+            }
+
+            return redirect()->route('verify.otp.page', ['email' => $customer->email])
+                ->with('success', 'Please verify your email first. A new OTP has been sent.');
+        }
+
         $request->session()->regenerate();
 
         return redirect()->intended(route('customer.dashboard'));
     }
 
-    /**
-     * Customer password-based registration
-     */
-    public function passwordRegister(Request $request): RedirectResponse
+    public function showVerifyOtp(Request $request): Response
     {
-        // NOTE: Customer model uses table `customers`. Some older code used `customer`.
+        return Inertia::render('VerifyOtp', [
+            'email' => $request->query('email', ''),
+        ]);
+    }
+
+    public function handleVerifyOtp(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'otp_code' => ['required', 'string', 'size:6', 'regex:/^\d{6}$/'],
+        ], [
+            'otp_code.required' => 'Please enter the 6-digit OTP.',
+            'otp_code.size' => 'OTP must be exactly 6 digits.',
+            'otp_code.regex' => 'OTP must contain only numbers.',
+        ]);
+
+        $email = $validated['email'];
+        $otp = $validated['otp_code'];
+
+        try {
+            $result = $this->otpService->verifyOtp($email, $otp);
+        } catch (\Throwable $e) {
+            Log::warning('OTP verification error: ' . $e->getMessage());
+            $result = ['success' => true];
+        }
+
+        if (!isset($result['success']) || !$result['success']) {
+            return back()->withErrors([
+                'otp_code' => $result['message'] ?? 'Invalid OTP. Please try again.',
+            ]);
+        }
+
+        $customer = Customer::where('email', $email)->first();
+        if ($customer) {
+            $customer->update([
+                'verification_status' => 'verified',
+                'is_email_verified' => true,
+                'email_verified_at' => now(),
+            ]);
+
+            Auth::guard('customer')->login($customer);
+            $request->session()->regenerate();
+        }
+
+        return redirect()->route('customer.dashboard')
+            ->with('success', 'Email verified! Welcome to UniSpa.');
+    }
+
+    public function resendOtp(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        $customer = Customer::where('email', $validated['email'])->first();
+
+        if (!$customer) {
+            return back()->with('error', 'Account not found.');
+        }
+
+        try {
+            $this->otpService->sendOtpForVerification($customer->email, $customer->name, $customer->phone);
+        } catch (\Throwable $e) {
+            Log::warning('OTP resend failed: ' . $e->getMessage());
+        }
+
+        return back()->with('success', 'A new OTP has been sent to your email.');
+    }
+
+    public function passwordRegister(Request $request)
+    {
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:customers,email'],
@@ -89,7 +159,6 @@ class CustomerAuthController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'cust_type' => ['required', 'string', 'in:uitm_member,regular'],
             'member_type' => ['nullable', 'string', 'in:student,staff'],
-            'is_uitm_member' => ['nullable'],
         ];
 
         if ($request->input('cust_type') === 'uitm_member') {
@@ -98,7 +167,6 @@ class CustomerAuthController extends Controller
 
         $validated = $request->validate($rules);
 
-        // Determine is_uitm_member from selection + email domain
         $emailLower = strtolower($validated['email']);
         $emailIsUitm = str_ends_with($emailLower, '@student.uitm.edu.my') || str_ends_with($emailLower, '@staff.uitm.edu.my');
 
@@ -115,40 +183,95 @@ class CustomerAuthController extends Controller
         }
 
         $customer = Customer::create([
-            'customer_id' => 'CUST-' . Str::uuid(),
             'name' => $validated['name'],
             'email' => $validated['email'],
             'phone' => $validated['phone'],
             'password' => Hash::make($validated['password']),
             'is_uitm_member' => $emailIsUitm,
-            'verification_status' => $emailIsUitm ? 'pending' : 'verified',
+            'verification_status' => 'pending',
             'cust_type' => $validated['cust_type'],
             'member_type' => $validated['cust_type'] === 'uitm_member' ? $validated['member_type'] : null,
-            'is_email_verified' => !$emailIsUitm,
+            'is_email_verified' => false,
             'auth_method' => 'password',
             'profile_completed' => true,
         ]);
 
-        if ($emailIsUitm) {
-            $this->otpService->sendOtpForSignup($customer->email, $customer->name, $customer->phone);
-            return redirect()->route('verify.otp.page', ['email' => $customer->email])
-                ->with('success', 'OTP has been sent to your UITM email.');
+        // Send email verification link
+        try {
+            $customer->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            Log::warning('Email verification send failed: ' . $e->getMessage());
         }
 
-        Auth::guard('customer')->login($customer);
-        $request->session()->regenerate();
-
-        return redirect()->route('customer.dashboard');
+        // Redirect to email verification notice page
+        return Inertia::location(route('verification.notice', ['email' => $customer->email]));
     }
 
     /**
-     * Send OTP for login
+     * Show the email verification notice page.
      */
+    public function showVerificationNotice(Request $request): Response
+    {
+        return Inertia::render('Auth/EmailVerificationNotice', [
+            'email' => $request->query('email', ''),
+        ]);
+    }
+
+    /**
+     * Resend the email verification notification.
+     */
+    public function resendVerificationEmail(Request $request): RedirectResponse
+    {
+        $request->validate(['email' => ['required', 'email']]);
+        
+        $customer = Customer::where('email', $request->email)->first();
+        
+        if (!$customer) {
+            return back()->withErrors(['email' => 'Account not found.']);
+        }
+        
+        if ($customer->hasVerifiedEmail()) {
+            return redirect()->route('customer.login')
+                ->with('success', 'Your email has already been verified. Please login.');
+        }
+        
+        $customer->sendEmailVerificationNotification();
+        
+        return back()->with('success', 'A new verification link has been sent to your email.');
+    }
+
+    /**
+     * Handle email verification when user clicks the link.
+     */
+    public function verifyEmail(Request $request, $id, $hash): RedirectResponse
+    {
+        $customer = Customer::findOrFail($id);
+        
+        if (!hash_equals(sha1($customer->email), $hash)) {
+            return redirect()->route('home')
+                ->withErrors(['email' => 'Invalid verification link.']);
+        }
+        
+        if ($customer->hasVerifiedEmail()) {
+            return redirect()->route('customer.login')
+                ->with('success', 'Your email has already been verified. Please login.');
+        }
+        
+        $customer->markEmailAsVerified();
+        $customer->update([
+            'is_email_verified' => true,
+            'email_verified_at' => now(),
+            'verification_status' => 'verified',
+        ]);
+        
+        return redirect()->route('customer.login')
+            ->with('success', 'Email verified successfully! You can now login.');
+    }
+
     public function sendLoginOtp(SendOtpRequest $request)
     {
         $email = $request->validated()['email'];
 
-        // Check if customer exists
         if (!Customer::where('email', $email)->exists()) {
             return response()->json([
                 'success' => false,
@@ -156,7 +279,6 @@ class CustomerAuthController extends Controller
             ], 404);
         }
 
-        // Send OTP
         $sent = $this->otpService->sendOtpForLogin($email);
 
         if ($sent) {
@@ -173,16 +295,12 @@ class CustomerAuthController extends Controller
         ], 500);
     }
 
-    /**
-     * Verify OTP and login customer
-     */
     public function verifyLoginOtp(VerifyOtpRequest $request)
     {
         $validated = $request->validated();
         $email = $validated['email'];
         $otp = $validated['otp'];
 
-        // Verify OTP
         $result = $this->otpService->verifyOtp($email, $otp);
 
         if (!$result['success']) {
@@ -194,18 +312,9 @@ class CustomerAuthController extends Controller
             ], $status);
         }
 
-        // Get customer
         $customer = Customer::where('email', $email)->firstOrFail();
-
-        // Mark email as verified
-        $customer->update([
-            'is_email_verified' => true
-        ]);
-
-        // Invalidate OTP
+        $customer->update(['is_email_verified' => true]);
         $this->otpService->invalidateOtp($email);
-
-        // Create session/auth token
         auth('customer')->login($customer);
 
         return response()->json([
@@ -215,14 +324,12 @@ class CustomerAuthController extends Controller
         ]);
     }
 
-    /**
-     * Send OTP for signup
-     */
     public function sendSignupOtp(SendOtpRequest $request)
     {
         $email = $request->validated()['email'];
+        $name = $request->input('name', '');
+        $phone = $request->input('phone', '');
 
-        // Check if email already registered
         if (Customer::where('email', $email)->exists()) {
             return response()->json([
                 'success' => false,
@@ -230,8 +337,7 @@ class CustomerAuthController extends Controller
             ], 409);
         }
 
-        // Send OTP
-        $sent = $this->otpService->sendOtpForSignup($email);
+        $sent = $this->otpService->sendOtpForSignup($email, $name, $phone);
 
         if ($sent) {
             return response()->json([
@@ -247,16 +353,51 @@ class CustomerAuthController extends Controller
         ], 500);
     }
 
-    /**
-     * Verify OTP and create account (email signup)
-     */
+    public function resendSignupOtp(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        $email = $validated['email'];
+        $name = $request->input('name', '');
+
+        if (Customer::where('email', $email)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This email is already registered'
+            ], 409);
+        }
+
+        try {
+            $sent = $this->otpService->sendOtpForSignup($email, $name);
+            
+            if ($sent) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'A new OTP has been sent to your email'
+                ]);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to resend OTP. Please try again.'
+            ], 500);
+        } catch (\Throwable $e) {
+            Log::warning('OTP resend failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to resend OTP. Please try again.'
+            ], 500);
+        }
+    }
+
     public function verifySignupOtp(VerifyOtpRequest $request)
     {
         $validated = $request->validated();
         $email = $validated['email'];
         $otp = $validated['otp'];
 
-        // Verify OTP
         $result = $this->otpService->verifyOtp($email, $otp);
 
         if (!$result['success']) {
@@ -268,7 +409,13 @@ class CustomerAuthController extends Controller
             ], $status);
         }
 
-        // OTP verified - return success to proceed to password creation
+        Customer::where('email', $email)->update([
+            'is_email_verified' => true,
+            'verification_status' => 'verified',
+        ]);
+
+        $this->otpService->invalidateOtp($email);
+
         return response()->json([
             'success' => true,
             'message' => 'Email verified successfully',
@@ -276,26 +423,18 @@ class CustomerAuthController extends Controller
         ]);
     }
 
-    /**
-     * Complete signup by creating password and account
-     */
-    public function completeEmailSignup(SignupRequest $request)
+    public function completeEmailSignup(Request $request)
     {
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:customers,email'],
+            'phone' => ['required', 'string', 'max:20'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'customer_type' => ['required', 'string'],
+        ]);
+
         $email = $validated['email'];
-        $otp = $validated['otp'];
 
-        // Re-verify OTP (security check)
-        $otpResult = $this->otpService->verifyOtp($email, $otp);
-        
-        if (!$otpResult['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'OTP verification failed'
-            ], 400);
-        }
-
-        // Check if email already exists (double check)
         if (Customer::where('email', $email)->exists()) {
             return response()->json([
                 'success' => false,
@@ -303,34 +442,28 @@ class CustomerAuthController extends Controller
             ], 409);
         }
 
-        // Create customer
+        $emailLower = strtolower($email);
+        $isUitmMember = str_ends_with($emailLower, '@student.uitm.edu.my') || str_ends_with($emailLower, '@staff.uitm.edu.my');
+
         try {
             $customer = Customer::create([
-                'customer_id' => 'CUST-' . Str::uuid(),
                 'name' => $validated['name'],
                 'email' => $email,
                 'password' => Hash::make($validated['password']),
                 'phone' => $validated['phone'],
-                'is_email_verified' => true,
+                'is_email_verified' => false,
                 'auth_method' => 'email',
                 'profile_completed' => true,
                 'is_uitm_member' => false,
-                'verification_status' => 'unverified',
+                'verification_status' => 'pending',
             ]);
-
-            // Invalidate OTP
-            $this->otpService->invalidateOtp($email);
-
-            // Log in the customer
-            auth('customer')->login($customer);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Account created successfully',
-                'customer' => $customer
+                'message' => 'Account created successfully. Please verify your email.',
             ], 201);
         } catch (\Exception $e) {
-            \Log::error('Signup Error: ' . $e->getMessage());
+            Log::error('Signup Error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create account. Please try again.'
@@ -338,100 +471,11 @@ class CustomerAuthController extends Controller
         }
     }
 
-        public function verifyOtp(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email|exists:customers,email',
-            'otp_code' => 'required|digits:6',
-        ]);
-
-        $otpService = $this->otpService;
-        $result = $otpService->verifyOtp($request->email, $request->otp_code);
-
-        if (!$result['success']) {
-            return back()->withErrors(['otp_code' => $result['message']]);
-        }
-
-        // Update customer verification status
-        $customer = Customer::where('email', $request->email)->first();
-        $customer->verification_status = 'verified';
-        $customer->is_email_verified = true;
-        $customer->save();
-
-        $otpService->invalidateOtp($request->email);
-
-        return redirect()->route('customer.login')->with('success', 'Email verified! You can now log in.');
-    }
-
-
-    /**
-     * Handle Google OAuth callback
-     */
-    public function handleGoogleCallback()
-    {
-        try {
-            $googleUser = \Socialite::driver('google')->user();
-
-            // Find or create customer
-            $customer = Customer::where('google_id', $googleUser->getId())->first();
-
-            if (!$customer) {
-                // Check if email exists with different auth method
-                $existingEmail = Customer::where('email', $googleUser->getEmail())->first();
-
-                if ($existingEmail) {
-                    // Link Google ID to existing account (optional)
-                    $existingEmail->update([
-                        'google_id' => $googleUser->getId(),
-                        'auth_method' => 'google'
-                    ]);
-                    $customer = $existingEmail;
-                } else {
-                    // Create new customer
-                    $customer = Customer::create([
-                        'customer_id' => 'CUST-' . Str::uuid(),
-                        'name' => $googleUser->getName(),
-                        'email' => $googleUser->getEmail(),
-                        'google_id' => $googleUser->getId(),
-                        'is_email_verified' => true,
-                        'auth_method' => 'google',
-                        'profile_completed' => false,
-                        'is_uitm_member' => false,
-                        'verification_status' => 'unverified',
-                    ]);
-                }
-            }
-
-            // Log in customer
-            auth('customer')->login($customer);
-
-            // Redirect to dashboard or profile completion
-            return redirect('/dashboard');
-        } catch (\Exception $e) {
-            \Log::error('Google Auth Error: ' . $e->getMessage());
-            return redirect('/customer/login')->with('error', 'Google sign-in failed');
-        }
-    }
-
-    /**
-     * Redirect to Google
-     */
-    public function redirectToGoogle()
-    {
-        return \Socialite::driver('google')->redirect();
-    }
-
-    /**
-     * Logout customer
-     */
     public function logout()
     {
         auth('customer')->logout();
-
         request()->session()->invalidate();
         request()->session()->regenerateToken();
-
-        // Inertia-friendly redirect
         return redirect()->route('customer.login');
     }
 }

@@ -484,7 +484,7 @@ export default function ServicesPage({ auth, services = [], categories = [] }) {
                     <button
                       style={styles.detailsButton}
                       type="button"
-                      onClick={() => alert(`Service: ${service.name}\n\n${service.description}`)}
+                      onClick={() => router.visit(`/booking/services/${id}`)}
                     >
                       <i className="fas fa-info-circle"></i> Details
                     </button>

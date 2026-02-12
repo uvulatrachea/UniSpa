@@ -54,9 +54,11 @@ export default function AppointmentI({ auth, services = [], selectedServiceId = 
     try {
       const res = await fetch("/booking/slots", {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
           "X-CSRF-TOKEN": csrf || "",
+          "Accept": "application/json",
         },
         body: JSON.stringify({ service_id: Number(selectedService), date }),
       });
@@ -87,9 +89,11 @@ export default function AppointmentI({ auth, services = [], selectedServiceId = 
       // Create booking draft (legacy endpoint). Then send user to reservations list.
       const res = await fetch("/booking/checkout", {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
           "X-CSRF-TOKEN": csrf || "",
+          "Accept": "application/json",
         },
         body: JSON.stringify({
           service_id: Number(selectedService),

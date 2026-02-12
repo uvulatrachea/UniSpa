@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Auth\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\BookingConfirmedMail;
+use App\Mail\StaffAvailabilityReviewedMail;
 use App\Models\Booking;
+use App\Models\Staff;
 use App\Support\BookingCalendar;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -70,8 +72,9 @@ class AdminDashboardController extends Controller
 
         $base = 'receipts/' . $booking->booking_id . '-' . now()->format('YmdHis');
 
-        if (class_exists(\Dompdf\Dompdf::class)) {
-            $dompdf = new \Dompdf\Dompdf();
+        $dompdfClass = 'Dompdf\Dompdf';
+        if (class_exists($dompdfClass)) {
+            $dompdf = new $dompdfClass();
             $dompdf->loadHtml($html);
             $dompdf->setPaper('A4');
             $dompdf->render();
@@ -631,10 +634,71 @@ class AdminDashboardController extends Controller
     public function destroyCustomer(int $customerId)
     {
         try {
-            DB::table('customers')->where('customer_id', $customerId)->delete();
-            return back()->with('success', 'Customer user deleted.');
+            DB::transaction(function () use ($customerId) {
+                // Get all booking IDs for this customer
+                $bookingIds = DB::table('booking')
+                    ->where('customer_id', $customerId)
+                    ->pluck('booking_id')
+                    ->toArray();
+
+                // Delete related records in correct order
+                if (!empty($bookingIds)) {
+                    // Get all slot IDs linked to these bookings
+                    $slotIds = DB::table('slot')
+                        ->whereIn('slot_id', function ($q) use ($bookingIds) {
+                            $q->select('slot_id')
+                              ->from('booking')
+                              ->whereIn('booking_id', $bookingIds);
+                        })
+                        ->pluck('slot_id')
+                        ->toArray();
+
+                    // Delete review participants/responses if any
+                    DB::table('review_participant')
+                        ->whereIn('booking_id', $bookingIds)
+                        ->delete();
+                    
+                    // Delete reviews linked to bookings
+                    DB::table('review')
+                        ->whereIn('booking_id', $bookingIds)
+                        ->delete();
+
+                    // Delete booking participants
+                    DB::table('booking_participant')
+                        ->whereIn('booking_id', $bookingIds)
+                        ->delete();
+
+                    // Delete the bookings themselves
+                    DB::table('booking')
+                        ->whereIn('booking_id', $bookingIds)
+                        ->delete();
+
+                    // Delete slots linked to the deleted bookings
+                    if (!empty($slotIds)) {
+                        DB::table('slot')
+                            ->whereIn('slot_id', $slotIds)
+                            ->delete();
+                    }
+                }
+
+                // Delete reviews linked directly to customer (not through booking)
+                DB::table('review')
+                    ->where('customer_id', $customerId)
+                    ->delete();
+
+                // Delete cart records for this customer
+                DB::table('cart')->where('customer_id', $customerId)->delete();
+
+                // Delete verification records for this customer
+                DB::table('verifications')->where('customer_id', $customerId)->delete();
+
+                // Finally delete the customer
+                DB::table('customers')->where('customer_id', $customerId)->delete();
+            });
+
+            return back()->with('success', 'Customer and all related records deleted.');
         } catch (\Throwable $e) {
-            return back()->with('error', 'Unable to delete customer with related records.');
+            return back()->with('error', 'Unable to delete customer: ' . $e->getMessage());
         }
     }
 
@@ -918,7 +982,7 @@ class AdminDashboardController extends Controller
             's.duration_minutes',
             Schema::hasColumn('service', 'image_url') ? 's.image_url' : DB::raw('NULL as image_url'),
             Schema::hasColumn('service', 'is_popular') ? 's.is_popular' : DB::raw('FALSE as is_popular'),
-            Schema::hasColumn('service', 'tags') ? DB::raw("COALESCE(s.tags::text, '[]') as tags") : DB::raw("'[]' as tags"),
+            Schema::hasColumn('service', 'tags') ? (DB::connection()->getDriverName() === 'mysql' ? DB::raw("COALESCE(CAST(s.tags AS CHAR), '[]') as tags") : DB::raw("COALESCE(s.tags::text, '[]') as tags")) : DB::raw("'[]' as tags"),
             Schema::hasColumn('service', 'created_at') ? 's.created_at' : DB::raw('NULL as created_at'),
             DB::raw("COUNT(ps.{$promotionServiceServiceFk}) as promotion_count"),
         ];
@@ -931,7 +995,7 @@ class AdminDashboardController extends Controller
             $serviceGroupBy[] = 's.is_popular';
         }
         if (Schema::hasColumn('service', 'tags')) {
-            $serviceGroupBy[] = DB::raw('s.tags::text');
+            $serviceGroupBy[] = DB::connection()->getDriverName() === 'mysql' ? DB::raw('CAST(s.tags AS CHAR)') : DB::raw('s.tags::text');
         }
         if (Schema::hasColumn('service', 'created_at')) {
             $serviceGroupBy[] = 's.created_at';
@@ -973,7 +1037,11 @@ class AdminDashboardController extends Controller
                 'p.link',
                 Schema::hasColumn('promotion', 'created_at') ? 'p.created_at' : DB::raw('NULL as created_at'),
                 DB::raw("COUNT(ps.{$promotionServiceServiceFk}) as service_count"),
-                DB::raw("COALESCE(array_remove(array_agg(DISTINCT ps.{$promotionServiceServiceFk}), NULL), ARRAY[]::bigint[]) as linked_service_ids"),
+                DB::raw(
+                    DB::connection()->getDriverName() === 'pgsql'
+                        ? "COALESCE(array_remove(array_agg(DISTINCT ps.{$promotionServiceServiceFk}), NULL), ARRAY[]::bigint[]) as linked_service_ids"
+                        : "COALESCE(GROUP_CONCAT(DISTINCT ps.{$promotionServiceServiceFk} ORDER BY ps.{$promotionServiceServiceFk}), '') as linked_service_ids"
+                ),
                 DB::raw("CASE WHEN p.end_date IS NULL THEN 'permanent' ELSE 'seasonal' END as promotion_type"),
             ])
             ->when($search !== '', function ($q) use ($search) {
@@ -1444,6 +1512,8 @@ class AdminDashboardController extends Controller
             ];
         })->values();
 
+        $hasApproval = Schema::hasColumn('schedule', 'approval_status');
+
         $schedules = DB::table('schedule as sc')
             ->join('staff as st', 'st.staff_id', '=', 'sc.staff_id')
             ->whereBetween('sc.schedule_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
@@ -1457,6 +1527,7 @@ class AdminDashboardController extends Controller
                 'sc.end_time',
                 'sc.created_by',
                 'sc.status',
+                $hasApproval ? 'sc.approval_status' : DB::raw("'approved' as approval_status"),
             ])
             ->orderBy('sc.schedule_date')
             ->orderBy('sc.start_time')
@@ -1582,10 +1653,35 @@ class AdminDashboardController extends Controller
                 'sc.end_time',
                 'sc.created_by',
                 'sc.status',
+                $hasApproval ? 'sc.approval_status' : DB::raw("'approved' as approval_status"),
             ])
             ->orderBy('sc.schedule_date')
             ->orderBy('sc.start_time')
             ->get();
+
+        // Pending student staff availability requests (for admin approval)
+        $pendingStudentAvailability = collect();
+        if ($hasApproval) {
+            $pendingStudentAvailability = DB::table('schedule as sc')
+                ->join('staff as st', 'st.staff_id', '=', 'sc.staff_id')
+                ->where('st.staff_type', 'student')
+                ->whereBetween('sc.schedule_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+                ->where('sc.created_by', 'staff')
+                ->where('sc.status', 'active')
+                ->where('sc.approval_status', 'pending')
+                ->select([
+                    'sc.schedule_id',
+                    'sc.staff_id',
+                    'st.name as staff_name',
+                    'sc.schedule_date',
+                    'sc.start_time',
+                    'sc.end_time',
+                    'sc.approval_status',
+                ])
+                ->orderBy('sc.schedule_date')
+                ->orderBy('sc.start_time')
+                ->get();
+        }
 
         $roomLabelCol = Schema::hasColumn('treatment_room', 'room_name') ? 'room_name' : 'room_type';
         $roomCategoryCol = Schema::hasColumn('treatment_room', 'category_id') ? 'category_id' : null;
@@ -1628,7 +1724,71 @@ class AdminDashboardController extends Controller
             'selectedDateBookings' => $selectedDateBookings,
             'monthAppointmentCounts' => $monthAppointmentCounts,
             'pendingQrBookings' => $pendingQrBookings,
+            'pendingStudentAvailability' => $pendingStudentAvailability,
         ]);
+    }
+
+    public function approveStudentAvailability(Request $request)
+    {
+        if (!Schema::hasColumn('schedule', 'approval_status')) {
+            return back()->with('error', 'Approval workflow is not enabled yet. Please run migrations.');
+        }
+
+        $validated = $request->validate([
+            'schedule_ids' => ['required', 'array', 'min:1'],
+            'schedule_ids.*' => ['integer'],
+            'action' => ['required', Rule::in(['approve', 'reject'])],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $newStatus = $validated['action'] === 'approve' ? 'approved' : 'rejected';
+
+        $payload = ['approval_status' => $newStatus];
+        if ($newStatus === 'rejected' && Schema::hasColumn('schedule', 'approval_notes')) {
+            $payload['approval_notes'] = !empty($validated['notes']) ? trim((string) $validated['notes']) : null;
+        }
+        if ($newStatus === 'approved' && Schema::hasColumn('schedule', 'approval_notes')) {
+            // Clear notes on approval
+            $payload['approval_notes'] = null;
+        }
+
+        DB::table('schedule')
+            ->whereIn('schedule_id', $validated['schedule_ids'])
+            ->update($payload);
+
+        // Send email to each affected student staff (best-effort).
+        try {
+            $scheduleIds = collect($validated['schedule_ids'])->map(fn ($v) => (int) $v)->values();
+            $staffIds = DB::table('schedule')
+                ->whereIn('schedule_id', $scheduleIds)
+                ->pluck('staff_id')
+                ->unique()
+                ->values();
+
+            $tz = config('app.timezone', 'Asia/Kuala_Lumpur');
+            $now = now($tz);
+            $monthStart = $now->copy()->startOfMonth();
+            $monthEnd = $now->copy()->endOfMonth();
+
+            foreach ($staffIds as $sid) {
+                $staff = Staff::query()->where('staff_id', (int) $sid)->first();
+                if (!$staff || empty($staff->email)) {
+                    continue;
+                }
+                Mail::to($staff->email)->send(new StaffAvailabilityReviewedMail(
+                    staffName: (string) ($staff->name ?? 'Student Staff'),
+                    monthStart: $monthStart,
+                    monthEnd: $monthEnd,
+                    decision: $newStatus,
+                    itemsCount: (int) $scheduleIds->count(),
+                    notes: $newStatus === 'rejected' ? ($payload['approval_notes'] ?? null) : null,
+                ));
+            }
+        } catch (\Throwable $e) {
+            // ignore mail errors
+        }
+
+        return back()->with('success', "Student availability has been {$newStatus}.");
     }
 
     public function storeShift(Request $request)
@@ -1775,16 +1935,20 @@ class AdminDashboardController extends Controller
 
         $booking->refresh()->loadMissing(['customer', 'participants', 'slot.service']);
 
-        foreach ($this->bookingRecipients($booking) as $recipient) {
-            Mail::to($recipient['email'])->send(
-                new BookingConfirmedMail(
-                    booking: $booking,
-                    recipientName: $recipient['name']
-                )
-            );
+        try {
+            foreach ($this->bookingRecipients($booking) as $recipient) {
+                Mail::to($recipient['email'])->send(
+                    new BookingConfirmedMail(
+                        booking: $booking,
+                        recipientName: $recipient['name']
+                    )
+                );
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('QR confirm email failed: ' . $e->getMessage());
         }
 
-        return back()->with('success', 'Payment proof verified, booking confirmed, staff assigned, and email sent.');
+        return back()->with('success', 'Payment proof verified, booking confirmed, staff assigned.');
     }
 
     public function bookings()
@@ -1960,20 +2124,28 @@ class AdminDashboardController extends Controller
             $booking->payment_status = 'paid';
         }
 
-        $receiptRef = strtoupper((string)($booking->payment_method ?: 'MANUAL')) . '-' . now()->format('YmdHis');
-        $booking->digital_receipt = $this->generateBookingReceipt($booking, $receiptRef);
+        try {
+            $receiptRef = strtoupper((string)($booking->payment_method ?: 'MANUAL')) . '-' . now()->format('YmdHis');
+            $booking->digital_receipt = $this->generateBookingReceipt($booking, $receiptRef);
+        } catch (\Throwable $e) {
+            \Log::warning('Receipt generation failed: ' . $e->getMessage());
+        }
         $booking->save();
 
-        foreach ($this->bookingRecipients($booking) as $recipient) {
-            Mail::to($recipient['email'])->send(
-                new BookingConfirmedMail(
-                    booking: $booking,
-                    recipientName: $recipient['name']
-                )
-            );
+        try {
+            foreach ($this->bookingRecipients($booking) as $recipient) {
+                Mail::to($recipient['email'])->send(
+                    new BookingConfirmedMail(
+                        booking: $booking,
+                        recipientName: $recipient['name']
+                    )
+                );
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Booking approved but email failed: ' . $e->getMessage());
         }
 
-        return back()->with('success', 'Booking approved and confirmation email sent.');
+        return back()->with('success', 'Booking approved successfully.');
     }
 
     public function updateBookingStatus(Request $request, string $bookingId)

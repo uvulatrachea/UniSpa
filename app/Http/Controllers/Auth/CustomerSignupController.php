@@ -158,8 +158,9 @@ class CustomerSignupController extends Controller
     }
 
     /**
-     * Complete signup - Create account and log in
+     * Complete signup - Create account
      * Step 3: User sets password and completes signup
+     * ALL customers must verify email at /verify-otp AFTER account creation
      */
     public function completeSignup(Request $request): JsonResponse
     {
@@ -188,16 +189,16 @@ class CustomerSignupController extends Controller
                 }
             }
 
-            // Create customer account
+            // Create customer account (NOT verified yet - will be verified at /verify-otp)
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'phone' => $validated['phone'],
                 'password' => Hash::make($validated['password']),
                 'is_uitm_member' => $validated['customer_type'] === 'uitm',
-                'verification_status' => $validated['customer_type'] === 'uitm' ? 'verified' : 'pending',
+                'verification_status' => 'pending',
                 'cust_type' => $validated['customer_type'] === 'uitm' ? 'uitm_student' : 'regular',
-                'email_verified_at' => $validated['customer_type'] === 'uitm' ? now() : null,
+                'email_verified_at' => null,
             ]);
 
             // Clean up OTP record if UITM
@@ -207,13 +208,18 @@ class CustomerSignupController extends Controller
                     ->delete();
             }
 
-            // Log the user in
-            Auth::login($user);
+            // Send OTP for email verification (for Non-UITM and to re-send for UITM)
+            try {
+                $this->otpService->sendOtpForVerification($user->email, $user->name, $user->phone);
+            } catch (\Throwable $e) {
+                Log::warning('OTP send failed during signup: ' . $e->getMessage());
+            }
 
+            // Redirect to OTP verification page - DO NOT auto-login
             return response()->json([
                 'success' => true,
-                'message' => 'Account created successfully!',
-                'redirect' => route('dashboard'),
+                'message' => 'Account created! Please verify your email.',
+                'redirect' => '/verify-otp?email=' . urlencode($validated['email']),
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([

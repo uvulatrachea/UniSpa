@@ -9,29 +9,24 @@ export default function Appointments({ auth, appointments, highlightBookingId = 
   const flash = usePage().props?.flash || {};
   const [toast, setToast] = useState({ open: false, type: "success", text: "" });
 
+  /* ── Toast from flash ── */
   const energeticMessage = useMemo(() => {
     const base = flash?.success || flash?.error;
     if (!base) return null;
 
     if (flash?.error) {
-      return {
-        type: "error",
-        text: `Heads up, ${username}! ${base}`,
-      };
+      return { type: "error", text: `Heads up, ${username}! ${base}` };
     }
 
     const lower = String(base).toLowerCase();
-    if (lower.includes("receipt") || lower.includes("upload")) {
+    if (lower.includes("receipt") || lower.includes("upload") || lower.includes("noted")) {
       return {
         type: "success",
-        text: `Hi, ${username}! 🎉 Your QR payment receipt has been uploaded successfully. We’ll verify it and keep you posted soon.`,
+        text: `Hi, ${username}! Your payment receipt has been uploaded. Our staff will verify and confirm your booking soon.`,
       };
     }
 
-    return {
-      type: "success",
-      text: `Hi, ${username}! ${base}`,
-    };
+    return { type: "success", text: `Hi, ${username}! ${base}` };
   }, [flash?.success, flash?.error, username]);
 
   useEffect(() => {
@@ -51,18 +46,17 @@ export default function Appointments({ auth, appointments, highlightBookingId = 
   const editDetails = (bookingId, currentDetails = "") => {
     const special_requests = prompt("Edit special requests:", currentDetails || "");
     if (special_requests === null) return;
-
-    router.patch(
-      `/bookings/${bookingId}/details`,
-      { special_requests },
-      { preserveScroll: true }
-    );
+    router.patch(`/bookings/${bookingId}/details`, { special_requests }, { preserveScroll: true });
   };
+
+  const needsPay = (a) =>
+    a.payment_status === "unpaid" || (!a.payment_method && a.status !== "cancelled" && a.status !== "completed");
 
   return (
     <CustomerLayout title="My Reservations" active="reservations">
-
       <main className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+
+        {/* ── Header ── */}
         <section className="rounded-2xl bg-white shadow-xl border border-slate-100 p-6 sm:p-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -71,7 +65,6 @@ export default function Appointments({ auth, appointments, highlightBookingId = 
                 Check when to attend, payment status, and reservation details.
               </p>
             </div>
-
             <div className="flex gap-2">
               <Link
                 href="/booking/services"
@@ -89,6 +82,7 @@ export default function Appointments({ auth, appointments, highlightBookingId = 
           </div>
         </section>
 
+        {/* ── Toast ── */}
         <section className="mt-6 space-y-4">
           <div
             className={`fixed right-4 top-24 z-50 w-[calc(100%-2rem)] max-w-md transform rounded-2xl border px-4 py-4 shadow-2xl transition-all duration-500 ${
@@ -112,6 +106,7 @@ export default function Appointments({ auth, appointments, highlightBookingId = 
             </div>
           </div>
 
+          {/* ── Booking cards ── */}
           {list.length ? (
             list.map((a) => {
               const isHighlighted = highlightBookingId && String(highlightBookingId) === String(a.booking_id);
@@ -150,9 +145,7 @@ export default function Appointments({ auth, appointments, highlightBookingId = 
                         </p>
                       ) : null}
 
-                      <p className="mt-2 text-xs text-slate-500 font-semibold">
-                        {a.manage_cutoff_label}
-                      </p>
+                      <p className="mt-2 text-xs text-slate-500 font-semibold">{a.manage_cutoff_label}</p>
                     </div>
 
                     <div className="relative w-full lg:w-auto lg:text-right">
@@ -169,36 +162,32 @@ export default function Appointments({ auth, appointments, highlightBookingId = 
 
                       <div className="mt-2 flex flex-wrap gap-2 lg:justify-end">
                         {a.qr_receipt_url ? (
-                          <a
-                            href={a.qr_receipt_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
-                          >
+                          <a href={a.qr_receipt_url} target="_blank" rel="noreferrer"
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">
                             <i className="fas fa-receipt" /> View Uploaded QR Slip
                           </a>
                         ) : null}
-
                         {a.booking_receipt_url ? (
-                          <a
-                            href={a.booking_receipt_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
-                          >
+                          <a href={a.booking_receipt_url} target="_blank" rel="noreferrer"
+                            className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100">
                             <i className="fas fa-file-invoice" /> Booking Receipt
                           </a>
                         ) : null}
                       </div>
 
                       <div className="mt-3 flex flex-col gap-2 lg:items-end">
-                        {a.google_calendar_url ? (
-                          <a
-                            href={a.google_calendar_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 lg:w-64"
+                        {needsPay(a) && (
+                          <Link
+                            href={`/bookings/${a.booking_id}/pay`}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-unispa-primaryDark to-unispa-primary px-3 py-2 text-xs font-extrabold text-white shadow hover:opacity-95 lg:w-64"
                           >
+                            Pay Now
+                          </Link>
+                        )}
+
+                        {a.google_calendar_url ? (
+                          <a href={a.google_calendar_url} target="_blank" rel="noreferrer"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 lg:w-64">
                             📅 Add to Google Calendar
                           </a>
                         ) : (
@@ -266,6 +255,7 @@ export default function Appointments({ auth, appointments, highlightBookingId = 
           </div>
         )}
       </main>
+
     </CustomerLayout>
   );
 }
@@ -279,14 +269,19 @@ function formatDate(v) {
 
 function StatusBadge({ status }) {
   const s = String(status || "pending").toLowerCase();
+  const label = s === "pending_approval" ? "Awaiting Approval" : s;
   const cls =
     s === "completed"
       ? "bg-emerald-100 text-emerald-700"
+      : s === "confirmed"
+      ? "bg-emerald-100 text-emerald-700"
       : s === "accepted"
       ? "bg-sky-100 text-sky-700"
+      : s === "pending_approval"
+      ? "bg-orange-100 text-orange-700"
       : s === "cancelled"
       ? "bg-rose-100 text-rose-700"
       : "bg-amber-100 text-amber-700";
 
-  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-wide ${cls}`}>{s}</span>;
+  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-wide ${cls}`}>{label}</span>;
 }

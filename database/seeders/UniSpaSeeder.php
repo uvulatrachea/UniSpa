@@ -12,52 +12,57 @@ class UniSpaSeeder extends Seeder
     {
         DB::transaction(function () {
 
-            /**
-             * A0) Admin staff account (secure hashed password)
-             */
+            // /**
+            //  * A0) Admin staff account (secure hashed password)
+            //  */
             $adminEmail = env('ADMIN_EMAIL', 'dinihasya15@gmail.com');
             $adminPasswordHash = Hash::make(env('ADMIN_PASSWORD', 'Admin12345!'));
 
-            // migrate old admin login if it exists
-            DB::table('staff')
-                ->where('email', 'izzati@gmail.com')
-                ->update([
-                    'name' => 'Nur Izzati',
-                    'email' => $adminEmail,
-                    'phone' => '0121111113',
-                    'password' => $adminPasswordHash,
-                    'staff_type' => 'general',
-                    'role' => 'Admin',
-                    'work_status' => 'active',
-                    'created_at' => now(),
-                ]);
+            // // migrate old admin login if it exists
+            // DB::table('staff')
+            //     ->where('email', 'izzati@gmail.com')
+            //     ->update([
+            //         'name' => 'Nur Izzati',
+            //         'email' => $adminEmail,
+            //         'phone' => '0121111113',
+            //         'password' => $adminPasswordHash,
+            //         'staff_type' => 'general',
+            //         'role' => 'Admin',
+            //         'work_status' => 'active',
+            //         'created_at' => now(),
+            //     ]);
 
-            DB::table('staff')->updateOrInsert(
-                ['email' => $adminEmail],
-                [
-                    'name' => 'Nur Izzati',
-                    'phone' => '0121111113',
-                    'password' => $adminPasswordHash,
-                    'staff_type' => 'general',
-                    'role' => 'Admin',
-                    'work_status' => 'active',
-                    'created_at' => now(),
-                ]
-            );
+            // DB::table('staff')->updateOrInsert(
+            //     ['email' => $adminEmail],
+            //     [
+            //         'name' => 'Nur Izzati',
+            //         'phone' => '0121111113',
+            //         'password' => $adminPasswordHash,
+            //         'staff_type' => 'general',
+            //         'role' => 'Admin',
+            //         'work_status' => 'active',
+            //         'created_at' => now(),
+            //     ]
+            // );
 
-            $adminStaffId = DB::table('staff')->where('email', $adminEmail)->value('staff_id');
-            if ($adminStaffId) {
-                DB::table('general_staff')->updateOrInsert(
-                    ['staff_id' => $adminStaffId],
-                    ['staff_id' => $adminStaffId]
-                );
-            }
+            // $adminStaffId = DB::table('staff')->where('email', $adminEmail)->value('staff_id');
+            // if ($adminStaffId) {
+            //     DB::table('general_staff')->updateOrInsert(
+            //         ['staff_id' => $adminStaffId],
+            //         ['staff_id' => $adminStaffId]
+            //     );
+            // }
 
             /**
-             * A) Customers (safe upsert)
+             * Staff Seeder — creates example active staff (general, therapist, student)
+             */
+
+
+            /**
+             * A) Customers (safe upsert) – one UiTM member, one regular user
              */
             $customers = [
-                [
+                [ // UiTM member (student)
                     'name' => 'Nur Aina',
                     'email' => '2025179327@student.uitm.edu.my',
                     'phone' => '0131000001',
@@ -70,7 +75,7 @@ class UniSpaSeeder extends Seeder
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],
-                [
+                [ // Regular user
                     'name' => 'Adam Lee',
                     'email' => 'adam@gmail.com',
                     'phone' => '0132000001',

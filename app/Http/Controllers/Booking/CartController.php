@@ -53,8 +53,23 @@ class CartController extends Controller
             ];
         })->values();
 
+        // Subtotal and UiTM 10% discount (match PaymentController logic)
+        $subtotal = $enriched->sum(fn ($it) => (float)($it['service']['price'] ?? 0) * (int)($it['quantity'] ?? 1));
+        $customer = auth('customer')->user();
+        $isUitmMember = $customer && !empty($customer->is_uitm_member);
+        $discountAmount = 0.0;
+        $total = round($subtotal, 2);
+        if ($isUitmMember && $subtotal > 0) {
+            $discountAmount = round($subtotal * 0.10, 2);
+            $total = round($subtotal - $discountAmount, 2);
+        }
+
         return Inertia::render('Booking/Cart', [
             'cartItems' => $enriched,
+            'subtotal' => round($subtotal, 2),
+            'discountAmount' => $discountAmount,
+            'total' => $total,
+            'isUitmMember' => $isUitmMember,
         ]);
     }
 

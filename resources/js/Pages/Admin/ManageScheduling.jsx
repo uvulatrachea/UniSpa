@@ -14,6 +14,7 @@ export default function ManageScheduling({
   selectedDateBookings = [],
   monthAppointmentCounts = [],
   pendingQrBookings = [],
+  pendingStudentAvailability = [],
 }) {
   const { flash = {} } = usePage().props;
 
@@ -24,6 +25,9 @@ export default function ManageScheduling({
 
   const [assignModal, setAssignModal] = useState({ open: false, booking: null });
   const [shiftModal, setShiftModal] = useState({ open: false, date: selectedDate, staffId: "" });
+
+  const [availabilitySelection, setAvailabilitySelection] = useState([]);
+  const [rejectNotes, setRejectNotes] = useState("");
 
   const assignForm = useForm({ staff_id: "", room_id: "" });
   const shiftForm = useForm({
@@ -149,6 +153,49 @@ export default function ManageScheduling({
       route("admin.scheduling.publish"),
       { week_start: weekStart },
       { preserveScroll: true }
+    );
+  };
+
+  const toggleAvailability = (scheduleId) => {
+    setAvailabilitySelection((prev) => {
+      const id = String(scheduleId);
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      return [...prev, id];
+    });
+  };
+
+  const bulkApproveAvailability = (action) => {
+    if (!availabilitySelection.length) {
+      alert("Please select at least 1 availability row.");
+      return;
+    }
+
+    if (action === "reject") {
+      const notes = (rejectNotes || "").trim();
+      if (!notes) {
+        alert("Please enter a reject reason/notes first.");
+        return;
+      }
+      if (notes.length > 500) {
+        alert("Notes must be 500 characters or less.");
+        return;
+      }
+    }
+
+    router.post(
+      route("admin.scheduling.student_availability.approve"),
+      {
+        schedule_ids: availabilitySelection.map((x) => Number(x)),
+        action,
+        notes: action === "reject" ? (rejectNotes || "").trim() : null,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setAvailabilitySelection([]);
+          if (action === "reject") setRejectNotes("");
+        },
+      }
     );
   };
 
@@ -610,6 +657,88 @@ export default function ManageScheduling({
               ))}
               {!pendingQrBookings?.length && <p className="text-sm text-slate-500">No pending QR proofs right now.</p>}
             </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-extrabold text-slate-700">Student Staff Availability Requests (Pending Approval)</h3>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => bulkApproveAvailability("approve")}
+                  className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"
+                >
+                  Approve Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => bulkApproveAvailability("reject")}
+                  className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700"
+                >
+                  Reject Selected
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
+              <p className="text-xs font-extrabold uppercase tracking-wide text-rose-700">Reject Notes (required when rejecting)</p>
+              <textarea
+                value={rejectNotes}
+                onChange={(e) => setRejectNotes(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="Example: Please adjust to only 2 days this week due to exam week; avoid overlapping lunch period 1PM–2PM."
+                className="mt-2 w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-[11px] font-semibold text-rose-700/80">
+                {Math.max(0, 500 - String(rejectNotes || "").length)} characters left.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 text-left text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2">Select</th>
+                    <th className="px-3 py-2">Student</th>
+                    <th className="px-3 py-2">Date</th>
+                    <th className="px-3 py-2">Time</th>
+                    <th className="px-3 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(pendingStudentAvailability || []).length ? (
+                    (pendingStudentAvailability || []).map((row) => (
+                      <tr key={`avail-${row.schedule_id}`} className="border-t border-slate-100">
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={availabilitySelection.includes(String(row.schedule_id))}
+                            onChange={() => toggleAvailability(row.schedule_id)}
+                          />
+                        </td>
+                        <td className="px-3 py-3 font-semibold text-slate-700">{row.staff_name}</td>
+                        <td className="px-3 py-3">{prettyDate(row.schedule_date)}</td>
+                        <td className="px-3 py-3">{shortTime(row.start_time)} - {shortTime(row.end_time)}</td>
+                        <td className="px-3 py-3">
+                          <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">Pending</span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                        No pending student availability requests.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="mt-2 text-[11px] font-semibold text-slate-500">
+              Approved availability will immediately become bookable (subject to staff + room collision checks).
+            </p>
           </div>
         </section>
 

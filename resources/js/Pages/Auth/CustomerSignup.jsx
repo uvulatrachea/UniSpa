@@ -107,15 +107,10 @@ export default function CustomerSignup() {
             const data = await response.json();
 
             if (data.success) {
-                setRequiresOtp(data.requires_otp);
-                if (data.requires_otp) {
-                    setStep('otp');
-                    setMessage('OTP sent to your UITM email. Enter it below.');
-                } else {
-                    // Non-UITM, skip OTP and go straight to password
-                    setStep('password');
-                    setMessage('Now create a secure password for your account.');
-                }
+                // ALL users go straight to password step after sending OTP
+                // OTP verification will happen AFTER account creation at /verify-otp
+                setStep('password');
+                setMessage('Now create a secure password for your account.');
             } else {
                 setErrors({ email: data.message });
             }
@@ -247,7 +242,9 @@ export default function CustomerSignup() {
             const data = await response.json();
 
             if (data.success) {
-                window.location.href = data.redirect || '/dashboard';
+                // Redirect to OTP verification page using backend redirect URL
+                const redirectUrl = data.redirect || '/verify-otp?email=' + encodeURIComponent(formData.email);
+                window.location.href = redirectUrl;
             } else {
                 if (data.errors) {
                     setErrors(data.errors);

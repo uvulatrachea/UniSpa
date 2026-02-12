@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\OtpVerification;
 use App\Models\Customer;
+use App\Models\verification;
 use App\Mail\SendOtpEmail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Hash;
@@ -59,6 +60,38 @@ class OtpService
             return true;
         } catch (\Exception $e) {
             \Log::error('OTP Signup Error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Send OTP for email verification (customer already created, pending verification).
+     */
+    public function sendOtpForVerification(string $email, string $name = null, string $phone = null): bool
+    {
+        try {
+            $otp = $this->generateOtp();
+            \Log::info('OTP: ' . $otp);
+            $expiresAt = Carbon::now()->addMinutes(self::OTP_VALIDITY);
+
+            OtpVerification::updateOrCreate(
+                ['email' => $email, 'type' => 'signup'],
+                [
+                    'otp_token' => Hash::make($otp),
+                    'expires_at' => $expiresAt,
+                    'attempts' => 0,
+                    'signup_data' => [
+                        'name' => $name,
+                        'phone' => $phone,
+                    ],
+                ]
+            );
+
+            Mail::to($email)->send(new SendOtpEmail($otp, 'signup'));
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('OTP Verification Error: ' . $e->getMessage());
             return false;
         }
     }

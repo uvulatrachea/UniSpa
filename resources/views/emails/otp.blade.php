@@ -1,129 +1,111 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UniSpa OTP Verification</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f5;
             margin: 0;
-            padding: 20px;
+            padding: 0;
         }
         .container {
             max-width: 600px;
-            margin: 0 auto;
+            margin: 20px auto;
             background-color: #ffffff;
-            padding: 30px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         .header {
+            background: linear-gradient(135deg, #7c3aed, #5b21b6);
+            color: white;
+            padding: 30px;
             text-align: center;
-            margin-bottom: 30px;
         }
         .header h1 {
-            color: #333;
             margin: 0;
             font-size: 28px;
         }
-        .logo {
-            color: #7c3aed;
-            font-weight: bold;
-        }
         .content {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .content p {
-            color: #666;
+            padding: 30px;
+            color: #374151;
             line-height: 1.6;
-            margin: 10px 0;
         }
         .otp-box {
-            background-color: #f0f0f0;
-            border: 2px dashed #7c3aed;
-            padding: 20px;
-            margin: 25px 0;
+            background-color: #f3f4f6;
+            border: 2px dashed #d1d5db;
             border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
         }
         .otp-code {
             font-size: 36px;
             font-weight: bold;
             color: #7c3aed;
-            letter-spacing: 5px;
-            font-family: 'Courier New', monospace;
+            letter-spacing: 8px;
+            font-family: monospace;
+        }
+        .otp-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
         }
         .warning {
             background-color: #fef3c7;
             border-left: 4px solid #f59e0b;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-            color: #78350f;
-        }
-        .footer {
-            text-align: center;
-            color: #999;
-            font-size: 12px;
-            margin-top: 30px;
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-        }
-        .type-badge {
-            display: inline-block;
-            background-color: #7c3aed;
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            margin-bottom: 15px;
-            text-transform: uppercase;
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 0 4px 4px 0;
+            font-size: 14px;
+            color: #92400e;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1><span class="logo">UniSpa</span></h1>
-            <p style="color: #999; margin: 5px 0;">Spa Management System</p>
+            <h1>UniSpa</h1>
+            <p>University Wellness Platform</p>
         </div>
-
+        
         <div class="content">
-            <div class="type-badge">
-                {{ $type === 'signup' ? 'Sign Up Verification' : 'Login Verification' }}
-            </div>
-
+            <h2 style="color: #111827; margin-top: 0;">{{ $type === 'signup' ? 'Verify Your Email' : 'Your Login OTP' }}</h2>
+            
+            <p>Hello,</p>
+            
             @if($type === 'signup')
-                <p>Thank you for signing up with UniSpa!</p>
-                <p>To complete your registration, please verify your email address using the code below:</p>
+                <p>Thank you for registering with UniSpa! To complete your account setup, please verify your email address by entering the OTP code below.</p>
             @else
-                <p>Your UniSpa login code is ready.</p>
-                <p>Use the code below to sign in to your account:</p>
+                <p>You have requested a One-Time Password (OTP) to log in to your UniSpa account. Please enter the OTP code below.</p>
             @endif
-
+            
             <div class="otp-box">
                 <div class="otp-code">{{ $otp }}</div>
+                <div class="otp-label">Your 6-digit OTP code</div>
             </div>
-
-            <p style="color: #666; font-size: 14px;">
-                This code will expire in <strong>10 minutes</strong>
-            </p>
-
+            
             <div class="warning">
-                <strong>⚠️ Security Notice:</strong><br>
-                Never share this code with anyone. UniSpa staff will never ask for your OTP code.
+                ⚠️ This OTP will expire in 10 minutes. Please do not share this code with anyone.
             </div>
-
-            <p style="color: #666; font-size: 14px; margin-top: 25px;">
-                If you didn't request this code, please ignore this email.
-            </p>
+            
+            <p>If you did not request this OTP, please ignore this email or contact support if you have concerns.</p>
         </div>
-
+        
         <div class="footer">
-            <p>© {{ date('Y') }} UniSpa Management System. All rights reserved.</p>
-            <p>This is an automated email. Please do not reply directly.</p>
+            <p>&copy; {{ date('Y') }} UniSpa - University Wellness Platform</p>
+            <p>This is an automated message. Please do not reply directly to this email.</p>
         </div>
     </div>
 </body>

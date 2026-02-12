@@ -10,8 +10,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
+use Stripe\Checkout\Session as StripeCheckoutSession;
+use Stripe\Stripe;
 
 class AppointmentController extends Controller
 {
@@ -54,6 +56,36 @@ class AppointmentController extends Controller
     /* ============================================================
      |  PAGES (Inertia)
      * ============================================================ */
+
+    /**
+     * Single-page "Book appointment" flow (AppointmentI.jsx).
+     * GET /appointment/appointment-i?service=1
+     */
+    public function appointmentI(Request $request)
+    {
+        $services = Service::query()
+            ->select(['id', 'category_id', 'name', 'description', 'price', 'duration_minutes', 'image_url'])
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($s) => [
+                'service_id' => (int) $s->id,
+                'id' => (int) $s->id,
+                'category_id' => (int) $s->category_id,
+                'name' => $s->name,
+                'description' => $s->description,
+                'price' => (float) $s->price,
+                'duration_minutes' => (int) $s->duration_minutes,
+                'image' => $s->image_url ?: 'https://via.placeholder.com/800x500/5B21B6/ffffff?text=UniSpa+Service',
+                'image_url' => $s->image_url,
+            ]);
+
+        $selectedServiceId = $request->query('service') ? (int) $request->query('service') : null;
+
+        return Inertia::render('Appointment/AppointmentI', [
+            'services' => $services,
+            'selectedServiceId' => $selectedServiceId,
+        ]);
+    }
 
     // Step 1: list services for booking
     public function servicesPage(Request $request)
@@ -160,21 +192,50 @@ class AppointmentController extends Controller
         $slot = $b->slot;
         $canManage = $b->canBeManagedByCustomer(24);
 
+        $slotDate = optional($slot?->slot_date)?->toDateString();
+        $startTime = $slot?->start_time;
+        $endTime = $slot?->end_time;
+        $serviceName = $slot?->service?->name;
+        $durationMinutes = $slot?->service?->duration_minutes;
+
+        // If no real slot row exists, parse the TMP slot id for display
+        // Format: TMP:{service_id}:{YYYY-MM-DD}:{HH:MM}
+        $rawSlotId = (string) $b->slot_id;
+        if (!$slot && str_starts_with($rawSlotId, 'TMP:')) {
+            $parts = explode(':', $rawSlotId);
+            $tmpServiceId = (int) ($parts[1] ?? 0);
+            $slotDate = $parts[2] ?? null;
+            $startTime = $parts[3] ?? null;
+
+            // Look up service name from the service_id in the TMP slot
+            if ($tmpServiceId > 0) {
+                $svc = Service::find($tmpServiceId);
+                if ($svc) {
+                    $serviceName = $svc->name;
+                    $durationMinutes = (int) $svc->duration_minutes;
+                    // Calculate end time from start + duration
+                    if ($startTime && $durationMinutes) {
+                        $endTime = date('H:i', strtotime($startTime . ':00') + $durationMinutes * 60);
+                    }
+                }
+            }
+        }
+
         return [
             'booking_id' => $b->booking_id,
             'status' => $b->status,
             'payment_method' => $b->payment_method,
             'payment_status' => $b->payment_status,
-            'qr_receipt_url' => $b->depo_qr_pic ? Storage::disk('public')->url($b->depo_qr_pic) : null,
-            'booking_receipt_url' => $b->digital_receipt ? Storage::disk('public')->url($b->digital_receipt) : null,
+            'qr_receipt_url' => $b->depo_qr_pic ? asset('storage/' . ltrim($b->depo_qr_pic, '/')) : null,
+            'booking_receipt_url' => $b->digital_receipt ? asset('storage/' . ltrim($b->digital_receipt, '/')) : null,
             'final_amount' => (float) ($b->final_amount ?? $b->total_amount ?? 0),
             'deposit_amount' => (float) ($b->deposit_amount ?? 0),
             'special_requests' => $b->special_requests,
-            'slot_date' => optional($slot?->slot_date)?->toDateString(),
-            'start_time' => $slot?->start_time,
-            'end_time' => $slot?->end_time,
-            'service_name' => $slot?->service?->name,
-            'duration_minutes' => $slot?->service?->duration_minutes,
+            'slot_date' => $slotDate,
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'service_name' => $serviceName,
+            'duration_minutes' => $durationMinutes,
             'participants_count' => $b->participants->count(),
             'participants' => $b->participants->map(fn ($p) => [
                 'name' => $p->name,
@@ -305,6 +366,9 @@ class AppointmentController extends Controller
         return $draft;
     }
 
+    /** UiTM member discount: 10% off. */
+    private const UITM_DISCOUNT_RATE = 0.10;
+
     private function recalcDraft(array $draft): array
     {
         $service = null;
@@ -316,7 +380,18 @@ class AppointmentController extends Controller
         $guestCount = max(1, min(3, $guestCount));
 
         $price = $service ? (float) $service->price : 0.0;
-        $total = round($price * $guestCount, 2);
+        $subtotal = round($price * $guestCount, 2);
+
+        // Apply 10% discount for UiTM members
+        $customer = auth('customer')->user();
+        $isUitmMember = $customer && !empty($customer->is_uitm_member);
+        $discountAmount = 0.0;
+        $total = $subtotal;
+        if ($isUitmMember && $subtotal > 0) {
+            $discountAmount = round($subtotal * self::UITM_DISCOUNT_RATE, 2);
+            $total = round($subtotal - $discountAmount, 2);
+        }
+
         $deposit = round($total * $this->depositRate, 2);
 
         $draft['service'] = $service ? [
@@ -327,10 +402,13 @@ class AppointmentController extends Controller
         ] : null;
 
         $draft['pricing'] = [
+            'subtotal' => $subtotal,
+            'discount_amount' => $discountAmount,
             'total' => $total,
             'deposit' => $deposit,
             'deposit_rate' => $this->depositRate,
             'guest_count' => $guestCount,
+            'is_uitm_discount' => $isUitmMember,
         ];
 
         return $draft;
@@ -482,7 +560,8 @@ class AppointmentController extends Controller
 
         $customerId = auth('customer')->id();
 
-        // Store a booking row
+        // Store a booking row (total_amount = final amount after UiTM 10% discount if applied)
+        $pricing = $draft['pricing'] ?? [];
         $bookingId = DB::table('bookings')->insertGetId([
             'customer_id' => $customerId,
             'service_id' => (int) $draft['service_id'],
@@ -491,10 +570,10 @@ class AppointmentController extends Controller
             'start_time' => $draft['schedule']['start_time'],
             'end_time' => $draft['schedule']['end_time'],
             'staff_name' => $draft['schedule']['staff_name'],
-            'guest_count' => (int) ($draft['pricing']['guest_count'] ?? 1),
+            'guest_count' => (int) ($pricing['guest_count'] ?? 1),
             'guests_json' => json_encode($draft['guests']),
-            'total_amount' => (float) ($draft['pricing']['total'] ?? 0),
-            'deposit_amount' => (float) ($draft['pricing']['deposit'] ?? 0),
+            'total_amount' => (float) ($pricing['total'] ?? 0),
+            'deposit_amount' => (float) ($pricing['deposit'] ?? 0),
             'payment_method' => $draft['payment']['method'],
             'payment_status' => $draft['payment']['status'] ?? 'unpaid',
             'status' => 'PENDING',
@@ -537,11 +616,10 @@ class AppointmentController extends Controller
         $draft['payment']['status'] = 'unpaid';
         $draft = $this->saveDraft($draft);
 
-        // ⚠️ You must have STRIPE_SECRET in .env and stripe/stripe-php installed.
-        // composer require stripe/stripe-php
-        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+        // ⚠️ You must have STRIPE_SECRET in .env (config/services.php stripe.secret).
+        Stripe::setApiKey(config('services.stripe.secret'));
 
-        $session = \Stripe\Checkout\Session::create([
+        $session = StripeCheckoutSession::create([
             'mode' => 'payment',
             'payment_method_types' => ['card'],
             'line_items' => [[

@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react"; // ✅ router + usePage added
 
 export default function GuestDashboard({ stats, promotions, services }) {
+  const { auth } = usePage().props;
+  const isLoggedIn = !!auth?.customer;
   const username = "Guest";
 
   const [slide, setSlide] = useState(0);
@@ -12,18 +14,24 @@ export default function GuestDashboard({ stats, promotions, services }) {
   const heroRef = useRef(null);
 
   const openLoginModal = (href = null) => {
+    // If already logged in, redirect to customer dashboard (or pending action)
+    if (isLoggedIn) {
+      router.visit(href || '/customer/dashboard');
+      return;
+    }
     setPendingHref(href);
     setLoginModalOpen(true);
   };
 
-  const goLogin = () => {
-    const redirect = pendingHref ? encodeURIComponent(pendingHref) : "";
-    // Guest app runs on :8080 (Vite) but auth pages are served by Laravel on :8000
-    const authBase = `${window.location.protocol}//${window.location.hostname}:8000`;
-    window.location.href = redirect
-      ? `${authBase}/customer/signup?redirect=${redirect}`
-      : `${authBase}/customer/signup`;
-  };
+  // ✅ FIXED LOGIN REDIRECT (Inertia-safe)
+const goLogin = () => {
+  const redirect = pendingHref ? `?redirect=${encodeURIComponent(pendingHref)}` : "";
+
+  // Force Laravel (change 8000 if your Laravel port is different)
+  const laravelBase = `${window.location.protocol}//${window.location.hostname}:8000`;
+  window.location.assign(`${laravelBase}/customer/login${redirect}`);
+};
+
 
   // Promotions from DB
   const promoSlides = useMemo(() => {
@@ -180,19 +188,37 @@ export default function GuestDashboard({ stats, promotions, services }) {
           </nav>
 
           <div className="flex items-center gap-2">
-            <RequireLoginLink
-              onRequire={() => openLoginModal(null)}
-              className="px-4 py-2 rounded-full border-2 border-unispa-primaryDark text-unispa-primaryDark font-extrabold hover:bg-unispa-muted"
-            >
-              Login
-            </RequireLoginLink>
-
-            <RequireLoginLink
-              onRequire={() => openLoginModal("/appointment/appointment-i")}
-              className="px-4 py-2 rounded-full bg-gradient-to-r from-unispa-primaryDark to-unispa-primary text-white font-extrabold shadow hover:opacity-95"
-            >
-              Book Now
-            </RequireLoginLink>
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/customer/dashboard"
+                  className="px-4 py-2 rounded-full border-2 border-unispa-primaryDark text-unispa-primaryDark font-extrabold hover:bg-unispa-muted"
+                >
+                  My Dashboard
+                </Link>
+                <Link
+                  href="/booking/services"
+                  className="px-4 py-2 rounded-full bg-gradient-to-r from-unispa-primaryDark to-unispa-primary text-white font-extrabold shadow hover:opacity-95"
+                >
+                  Book Now
+                </Link>
+              </>
+            ) : (
+              <>
+                <RequireLoginLink
+                  onRequire={() => openLoginModal(null)}
+                  className="px-4 py-2 rounded-full border-2 border-unispa-primaryDark text-unispa-primaryDark font-extrabold hover:bg-unispa-muted"
+                >
+                  Login
+                </RequireLoginLink>
+                <RequireLoginLink
+                  onRequire={() => openLoginModal("/appointment/appointment-i")}
+                  className="px-4 py-2 rounded-full bg-gradient-to-r from-unispa-primaryDark to-unispa-primary text-white font-extrabold shadow hover:opacity-95"
+                >
+                  Book Now
+                </RequireLoginLink>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -380,20 +406,29 @@ export default function GuestDashboard({ stats, promotions, services }) {
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       {/* ✅ Details allowed for guests */}
                       <Link
-                        href={`/guest/services#service-${s.service_id}`}
+                        href={`/booking/services/${s.service_id}`}
                         className="inline-flex justify-center items-center gap-2 rounded-lg border-2 border-unispa-primaryDark px-3 py-2 text-unispa-primaryDark font-bold hover:bg-unispa-muted text-sm"
                       >
                         <i className="fas fa-info-circle" /> Details
                       </Link>
 
                       {/* ✅ Book/Reserve requires login */}
-                      <button
-                        type="button"
-                        onClick={() => openLoginModal(`/appointment/appointment-i?service=${s.service_id}`)}
-                        className="inline-flex justify-center items-center gap-2 rounded-lg bg-gradient-to-r from-unispa-primaryDark to-unispa-primary px-3 py-2 text-white font-bold shadow text-sm"
-                      >
-                        <i className="fas fa-calendar-plus" /> Book Now
-                      </button>
+                      {isLoggedIn ? (
+                        <Link
+                          href={`/booking/services/${s.service_id}`}
+                          className="inline-flex justify-center items-center gap-2 rounded-lg bg-gradient-to-r from-unispa-primaryDark to-unispa-primary px-3 py-2 text-white font-bold shadow text-sm"
+                        >
+                          <i className="fas fa-calendar-plus" /> Book Now
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openLoginModal(`/appointment/appointment-i?service=${s.service_id}`)}
+                          className="inline-flex justify-center items-center gap-2 rounded-lg bg-gradient-to-r from-unispa-primaryDark to-unispa-primary px-3 py-2 text-white font-bold shadow text-sm"
+                        >
+                          <i className="fas fa-calendar-plus" /> Book Now
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

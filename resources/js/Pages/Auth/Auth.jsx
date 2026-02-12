@@ -35,17 +35,9 @@ export default function Auth() {
 
   useEffect(() => setPanel(defaultPanel), [defaultPanel]);
 
-  // Keep URL in sync when switching panel from the LEFT CTA button.
-  useEffect(() => {
-    // Avoid infinite navigation loops: only navigate when URL doesn't match panel.
-    const desired = panel === 'login' ? route('customer.login') : route('customer.signup');
-    const current = window.location.pathname;
-    const desiredPath = new URL(desired, window.location.origin).pathname;
-    if (current !== desiredPath) {
-      router.visit(desired, { preserveScroll: true, replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panel]);
+  // URL sync removed to avoid automatic client-side navigation that
+  // replaces /customer/signup with /customer/login. Panel state is now
+  // controlled only by defaultPanel and user interaction.
 
   useEffect(() => {
     const isUitm = activeTab === 'uitm_member' ? 1 : 0;

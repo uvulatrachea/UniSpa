@@ -388,7 +388,7 @@ export default function CustomerDashboard({ auth, stats, promotions, appointment
 
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       <Link
-                        href={`/booking/services#${s.service_id}`}
+                        href={`/booking/services/${s.service_id}`}
                         className="inline-flex justify-center items-center gap-2 rounded-lg border-2 border-unispa-primaryDark px-3 py-2 text-unispa-primaryDark font-bold hover:bg-unispa-muted text-sm"
                       >
                         <i className="fas fa-info-circle" /> Details

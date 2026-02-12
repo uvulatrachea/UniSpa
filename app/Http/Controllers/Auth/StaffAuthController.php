@@ -2,31 +2,83 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Models\Staff;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class StaffAuthController extends Controller
 {
-    public function login(Request $request)
+    public function create()
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
-        ]);
-
-        if (Auth::guard('staff')->attempt($credentials, $request->boolean('remember'))) {
-            $request->session()->regenerate();
-
-            return redirect()->route('staff.dashboard');
-        }
-
-        return back()->withErrors([
-            'email' => 'Invalid staff credentials.',
-        ]);
+        return inertia('Auth/StaffLogin');
     }
 
-    public function logout(Request $request)
+    public function store(Request $request)
+    {
+        $email = mb_strtolower(trim((string) $request->input('email', '')));
+        $request->merge(['email' => $email]);
+
+        $credentials = $request->validate([
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'password' => ['required', 'string', 'max:255'],
+        ]);
+
+        $staff = Staff::where('email', $credentials['email'])->first();
+        if (!$staff) {
+            throw ValidationException::withMessages([
+                'email' => 'Invalid email or password.',
+            ]);
+        }
+
+        // Staff portal excludes Admin accounts (admins use /admin/login).
+        if (($staff->role ?? null) === 'Admin') {
+            throw ValidationException::withMessages([
+                'email' => 'Invalid email or password.',
+            ]);
+        }
+
+        if (($staff->work_status ?? 'active') !== 'active') {
+            throw ValidationException::withMessages([
+                'email' => 'Invalid email or password.',
+            ]);
+        }
+
+        $plainPassword = (string) $credentials['password'];
+        $passwordOk = false;
+
+        try {
+            $passwordOk = Hash::check($plainPassword, (string) $staff->password);
+        } catch (RuntimeException $e) {
+            // Legacy or malformed hash in DB (e.g. plain text): avoid 500.
+            if ((string) $staff->password === $plainPassword) {
+                $passwordOk = true;
+                $staff->password = Hash::make($plainPassword);
+                $staff->save();
+            }
+        }
+
+        if (!$passwordOk) {
+            throw ValidationException::withMessages([
+                'email' => 'Invalid email or password.',
+            ]);
+        }
+
+        Auth::guard('staff')->login($staff, $request->boolean('remember'));
+        $request->session()->regenerate();
+
+        if (!empty($staff->password) && Hash::needsRehash((string) $staff->password)) {
+            $staff->password = Hash::make($plainPassword);
+            $staff->save();
+        }
+
+        return redirect()->route('staff.dashboard');
+    }
+
+    public function destroy(Request $request)
     {
         Auth::guard('staff')->logout();
         $request->session()->invalidate();

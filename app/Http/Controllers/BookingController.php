@@ -80,9 +80,12 @@ class BookingController extends Controller
         // simple pricing: service.price * pax
         $subtotal = (float)$service->price * $pax;
 
-        // simple discount placeholder (you can add UiTM discount later)
+        // UiTM members get 10% off
         $discount = 0.00;
-        $final = max(0, $subtotal - $discount);
+        if ($customer->is_uitm_member && $subtotal > 0) {
+            $discount = round($subtotal * 0.10, 2);
+        }
+        $final = max(0, round($subtotal - $discount, 2));
 
         $bookingId = 'BK' . strtoupper(Str::random(10));
 

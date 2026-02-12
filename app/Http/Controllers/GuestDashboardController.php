@@ -19,8 +19,7 @@ class GuestDashboardController extends Controller
             ->orderByDesc('promotion_id')
             ->get()
             ->map(function ($p) {
-                // pick first linked service (optional)
-                $serviceId = $p->services()->value('service.id'); // returns service.id
+                $serviceId = $p->services()->value('service.id');
 
                 return [
                     'promotion_id' => $p->promotion_id,
@@ -29,12 +28,12 @@ class GuestDashboardController extends Controller
                     'banner_image' => $p->banner_image,
                     'discount_type' => $p->discount_type,
                     'discount_value' => $p->discount_value,
-                    'service_id' => $serviceId, // can be null
+                    'service_id' => $serviceId,
                     'link' => $p->link,
                 ];
             });
 
-        // ✅ Services from DB (popular first)
+        // ✅ Services from DB
         $services = Service::query()
             ->orderByDesc('is_popular')
             ->orderByDesc('id')
@@ -47,7 +46,7 @@ class GuestDashboardController extends Controller
         $studentStaff = Staff::where('staff_type', 'student')->count();
         $avgRating = Review::avg('rating') ?? 0;
         $totalServices = Service::count();
-        $completedBookings = Booking::whereIn('status', ['completed','Completed'])->count();
+        $completedBookings = Booking::whereIn('status', ['completed', 'Completed'])->count();
 
         return Inertia::render('Guest/GuestDashboard', [
             'stats' => [
