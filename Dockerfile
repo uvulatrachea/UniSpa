@@ -36,9 +36,6 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     gd \
     bcmath
 
-# (Optional) Only install MySQL extensions if you REALLY use MySQL
-# RUN docker-php-ext-install pdo_mysql mysqli
-
 WORKDIR /var/www/html
 
 # Copy composer files first (better caching)
@@ -47,12 +44,26 @@ RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-s
 
 # Copy package files first (better caching)
 COPY package*.json ./
-RUN if [ -f "package.json" ]; then npm install; else echo "No package.json found"; fi
+RUN npm install
 
+# Copy application code
+COPY . .
 
 # Permissions for Laravel
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
  && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Build frontend assets
+RUN npm run build
+
+# Optimize Laravel for production
+RUN php artisan config:cache \
+ && php artisan route:cache \
+ && php artisan view:cache
+
+# Run migrations and seed database (if needed)
+# RUN php artisan migrate --force
+# RUN php artisan db:seed --class=UniSpaSeeder --force
 
 # Run Laravel on port 80 INSIDE container (so nginx can proxy to it)
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=80"]
