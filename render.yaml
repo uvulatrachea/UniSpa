@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: unispa
+    runtime: docker
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        value: https://unispa.onrender.com
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: APP_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_SSLMODE
+        value: require
