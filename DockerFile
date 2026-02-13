@@ -69,6 +69,8 @@ ENV SESSION_DOMAIN=""
 ENV SESSION_SAME_SITE="lax"
 ENV SESSION_PATH="/"
 ENV SESSION_HTTP_ONLY="true"
+ENV SESSION_ENCRYPT="false"
+ENV SESSION_EXPIRE_ON_CLOSE="false"
 
 # Permissions for Laravel
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
