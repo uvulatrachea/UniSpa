@@ -65,6 +65,9 @@ ENV DB_SSLMODE="require"
 ENV SESSION_SECURE_COOKIE="true"
 ENV SESSION_DRIVER="database"
 ENV SESSION_LIFETIME="120"
+ENV SESSION_DOMAIN="unispa.onrender.com"
+ENV SESSION_SAME_SITE="lax"
+ENV SESSION_PATH="/"
 
 # Permissions for Laravel
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
