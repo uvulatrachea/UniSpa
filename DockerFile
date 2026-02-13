@@ -52,7 +52,7 @@ COPY --exclude=.env . .
 # Set environment variables directly
 ENV APP_NAME="UniSpa"
 ENV APP_ENV="production"
-ENV APP_KEY=""
+ENV APP_KEY="base64:SpsmHf30i1vNR+tlf2/VSAnqHMoNqxeK8C8ZEbJps0Y="
 ENV APP_DEBUG="false"
 ENV APP_URL="https://unispa.onrender.com"
 ENV DB_CONNECTION="pgsql"
