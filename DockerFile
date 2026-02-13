@@ -70,11 +70,7 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 # Build frontend assets
 RUN npm run build
 
-# Run migrations and seed database (if needed)
-RUN php artisan migrate --force
-RUN php artisan db:seed --class=UniSpaSeeder --force
-
 # Run Laravel on port 80 INSIDE container (so nginx can proxy to it)
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=80"]
+CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --class=UniSpaSeeder --force && php artisan serve --host=0.0.0.0 --port=80"]
 
 EXPOSE 80
