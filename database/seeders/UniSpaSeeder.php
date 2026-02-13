@@ -12,46 +12,46 @@ class UniSpaSeeder extends Seeder
     {
         DB::transaction(function () {
 
-            // /**
-            //  * A0) Admin staff account (secure hashed password)
-            //  */
+            /**
+             * A0) Admin staff account (secure hashed password)
+             */
             $adminEmail = env('ADMIN_EMAIL', 'dinihasya15@gmail.com');
             $adminPasswordHash = Hash::make(env('ADMIN_PASSWORD', 'Admin12345!'));
 
-            // // migrate old admin login if it exists
-            // DB::table('staff')
-            //     ->where('email', 'izzati@gmail.com')
-            //     ->update([
-            //         'name' => 'Nur Izzati',
-            //         'email' => $adminEmail,
-            //         'phone' => '0121111113',
-            //         'password' => $adminPasswordHash,
-            //         'staff_type' => 'general',
-            //         'role' => 'Admin',
-            //         'work_status' => 'active',
-            //         'created_at' => now(),
-            //     ]);
+            // migrate old admin login if it exists
+            DB::table('staff')
+                ->where('email', 'izzati@gmail.com')
+                ->update([
+                    'name' => 'Nur Izzati',
+                    'email' => $adminEmail,
+                    'phone' => '0121111113',
+                    'password' => $adminPasswordHash,
+                    'staff_type' => 'general',
+                    'role' => 'Admin',
+                    'work_status' => 'active',
+                    'created_at' => now(),
+                ]);
 
-            // DB::table('staff')->updateOrInsert(
-            //     ['email' => $adminEmail],
-            //     [
-            //         'name' => 'Nur Izzati',
-            //         'phone' => '0121111113',
-            //         'password' => $adminPasswordHash,
-            //         'staff_type' => 'general',
-            //         'role' => 'Admin',
-            //         'work_status' => 'active',
-            //         'created_at' => now(),
-            //     ]
-            // );
+            DB::table('staff')->updateOrInsert(
+                ['email' => $adminEmail],
+                [
+                    'name' => 'Nur Izzati',
+                    'phone' => '0121111113',
+                    'password' => $adminPasswordHash,
+                    'staff_type' => 'general',
+                    'role' => 'Admin',
+                    'work_status' => 'active',
+                    'created_at' => now(),
+                ]
+            );
 
-            // $adminStaffId = DB::table('staff')->where('email', $adminEmail)->value('staff_id');
-            // if ($adminStaffId) {
-            //     DB::table('general_staff')->updateOrInsert(
-            //         ['staff_id' => $adminStaffId],
-            //         ['staff_id' => $adminStaffId]
-            //     );
-            // }
+            $adminStaffId = DB::table('staff')->where('email', $adminEmail)->value('staff_id');
+            if ($adminStaffId) {
+                DB::table('general_staff')->updateOrInsert(
+                    ['staff_id' => $adminStaffId],
+                    ['staff_id' => $adminStaffId]
+                );
+            }
 
             /**
              * Staff Seeder — creates example active staff (general, therapist, student)
