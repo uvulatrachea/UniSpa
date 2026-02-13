@@ -14,6 +14,20 @@ export default function Register() {
   const [memberType, setMemberType] = useState('student');
   const [emailError, setEmailError] = useState('');
 
+  const handleTabClick = (tab) => {
+    setActiveTab(tab);
+    setEmailError(''); // Clear any existing email error when switching tabs
+  };
+
+  const handleMemberTypeChange = (type) => {
+    setMemberType(type);
+    setEmailError(''); // Clear any existing email error when switching member type
+    // Re-validate email if it's already filled
+    if (data.email) {
+      validateUITMEmail(data.email, type);
+    }
+  };
+
   const validateUITMEmail = (email, type) => {
     const emailLower = (email || '').toLowerCase();
     if (type === 'student' && !emailLower.endsWith('@student.uitm.edu.my')) {
